@@ -1,9 +1,41 @@
-# Smart Industrial Safety System — Vest + Helmet
+# 🦺👷🏻‍♂️ SafeGuard-Smart Safety System for Industrial Workers
 
-A two-part academic embedded systems project: a LoRa-based industrial safety vest and a WiFi/GSM-connected safety helmet, sharing one Firebase backend.
+An IoT-based wearable safety vest and Helmet powered by **ESP32**, **LoRa**, **Arduino NANO**, **MQ-02** , **MAX30100**, **PiezoElectric Charging** and a **solar charging system**.
 
-## Repository structure
+## Features
+- 🌡️ Environmental Monitoring (BME280)
+- 📍 GPS Tracking (NEO-M8N)
+- 🚶 Motion & Fall Detection (MPU6050)
+- 📡 Long-range Communication (SX1278 RA-02 LoRa)
+- ♒︎ Object/Proximity Detection (Ultrasonic Sensor)
+- 🔥 Harmful Gas Detection (MQ-02)
+- 💓 Oximetry and Heart Rate Monitoring
+- ☀️ Solar Charging (DFRobot Solar Power Manager 5V)
+- 🕳️ Piezo Energy Harvesting (Piezo Elements)
+- 🆘 SOS Emergency Button
+- 🔋 Battery-powered wearable system
 
+## Hardware
+- ESP32 DevKit V1
+- Arduino NANO
+- BME280
+- MPU6050
+- NEO-M8N GPS
+- SX1278 RA-02
+- Ultrasonic Sensor
+- MQ-02
+- GY-MAX30100
+- ESP-01 WiFi
+- SIM800L GSM
+- 5V Flexible Solar Panel
+- Piezo Elements 
+- DFRobot Solar Power Manager 5V
+- 18650 Li-ion Battery
+- Active Buzzer
+- SOS Push Button
+- On/Off Switch
+
+## Repository Structure
 ```
 .
 ├── index.html          ← Web dashboard (must stay at repo root for GitHub Pages)
@@ -49,3 +81,16 @@ A two-part academic embedded systems project: a LoRa-based industrial safety ves
 | Vest | ✅ Complete |
 | Helmet | 🚧 Phase 1 (Component Verification) nearly done |
 | Final Project | ⏳ Pending both sections' completion |
+
+
+## Team
+- **Ajoy Das**
+- **Shafiul Azam**
+- **Ritu Biswas**
+- **Abdullah Al Mamun**
+- **Abdul Halim**
+
+
+<img width="1149" height="1369" alt="Roadmap" src="https://github.com/user-attachments/assets/29d0c561-884e-4e45-ae82-a04fb72beb29" />
+
+
