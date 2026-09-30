@@ -1,6 +1,6 @@
 # Smart Safety Helmet
 
-Second section of the Smart Industrial Safety System, alongside the [Smart Safety Vest](../). A dual-Arduino-Nano helmet for near-miss obstacle detection, hazardous gas monitoring, wearer vitals tracking, and auto headlamp control — with WiFi + GSM redundant connectivity back to the same Firebase project as the vest.
+Second section of the Smart Industrial Safety System, alongside the [Smart Safety Vest](/tree/main/vest). A dual-Arduino-Nano helmet for near-miss obstacle detection, hazardous gas monitoring, wearer vitals tracking, and auto headlamp control — with WiFi + GSM redundant connectivity back to the same Firebase project as the vest.
 
 **Status: 🚧 In Progress — Phase 1 (Component Verification) nearly complete**
 
