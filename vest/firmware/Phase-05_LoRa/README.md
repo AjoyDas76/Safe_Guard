@@ -1,0 +1,58 @@
+# Phase-05 LoRa Communication System (SX1278 RA-02)
+
+## Objective
+Establish long-range wireless communication between the worker's vest (transmitter) and a base station (receiver) using the SX1278 RA-02 LoRa module, carrying worker status, GPS location, and fall/SOS alerts reliably.
+
+## Tasks
+
+- [x] 5.1 SX1278 RA-02 Integration — `5.1_Integration_Test2.ino`
+- [x] 5.2 LoRa Transmitter Setup (Safety Vest) — `5.2_Transmitter_Setup2.ino`
+- [x] 5.3 LoRa Receiver Setup (Base Station) — `5.3_Receiver_Setup2.ino`
+- [x] 5.4 Worker Status Transmission — `5.4_Transmitter_WorkerStatus.ino` / `5.4_Receiver_WorkerStatus.ino`
+- [x] 5.5 GPS Data Transmission — `5.5_Transmitter_GPS.ino` / `5.5_Receiver_GPS.ino`
+- [x] 5.6 Fall Alert Transmission — `5_6_Transmitter_FallAlert.ino` / `5_6_Receiver_FallAlert.ino`
+- [x] 5.7 Communication Range Testing — `5.7_Transmitter_RangeTest.ino` / `5_7_Receiver_RangeTest.ino`
+- [x] 5.8 Packet Reliability & Error Handling — `5_8_Transmitter_Reliability.ino` / `5_8_Receiver_Reliability.ino`
+- [x] 5.9 LoRa Communication Module Finalization — `5.9_Transmitter_Final.ino` / `5.9_Receiver_Final.ino`
+
+## Components
+- ESP32 DevKit V1 (x2 — one worker unit, one base station)
+- SX1278 RA-02 LoRa Module (x2)
+- SOS Push Button
+- NEO-M8N GPS Module (worker unit)
+- MPU-6050 (worker unit)
+
+## Wiring
+
+> ⚠️ **Updated:** the values below are what Phase 5's own development/test sketches (`5.1`–`5.9`) used at the time. During final integration (Phase 9), **DIO0 moved to GPIO2** and the **SOS button moved to GPIO15** — see `firmware/Phase-09_System_Integration/transmitter_final.ino` (or the repo-root `VEST-CONNECTIONS.md`) for the pins actually used in the finished build.
+
+| SX1278 RA-02 | ESP32 | Final build (Phase 9) |
+|---------------|--------|--------|
+| VCC | 3.3V | 3.3V |
+| GND | GND | GND |
+| SCK | GPIO18 | GPIO18 |
+| MISO | GPIO19 | GPIO19 |
+| MOSI | GPIO23 | GPIO23 |
+| NSS | GPIO5 | GPIO5 |
+| RESET | GPIO14 | GPIO14 |
+| DIO0 | GPIO26 | **GPIO2** |
+
+SOS Button (Phase 5 test sketches): one leg → GPIO4, other leg → GND (internal pull-up). **Final build: GPIO15.**
+GPS (NEO-M8N): TX → GPIO16, RX → GPIO17 (Serial2) — unchanged in final build.
+MPU-6050: SDA → GPIO21, SCL → GPIO22 (I2C) — unchanged in final build.
+
+## Code
+See files listed under Tasks above.
+
+**`5.9_Transmitter_Final.ino` / `5.9_Receiver_Final.ino` are the finalized pair** — this is the version Phase 9 (System Integration) should build on. Earlier files (5.1–5.8) are kept as the development history / individual feature tests.
+
+## Test Results
+_(Pending — run a field range test using 5.7's transmitter/receiver pair and log distance vs. RSSI/SNR/loss% here.)_
+
+## Notes
+- 5.9 merges 5.6 (Fall Alert + GPS) with 5.8 (Checksum + ACK/retry reliability) into one clean module, with the ongoing link-stats reporting from 5.7 kept in the receiver for continued field monitoring (not just one-off range tests).
+- The 5.9 receiver is the natural point to hook in Phase 6 (Firebase upload) — it already fully decodes and validates every packet.
+
+## Status
+
+✅ **Completed (9/9 sub-tasks)**
