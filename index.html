@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SafeGuard – Real-Time Worker Safety Monitoring Dashboard</title>
+  <meta name="description" content="SafeGuard is a real-time worker safety monitoring dashboard with temperature, humidity, pressure, motion, fall detection, SOS alerts and GPS tracking.">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#050b14">
+  <link rel="canonical" href="https://ajoydas76.github.io/Safe_Guard/">
+
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="SafeGuard – Real-Time Worker Safety Monitoring Dashboard">
+  <meta property="og:description" content="Real-time monitoring of temperature, humidity, pressure, motion, fall detection, SOS alerts and GPS tracking.">
+  <meta property="og:url" content="https://ajoydas76.github.io/Safe_Guard/">
+  <meta property="og:site_name" content="SafeGuard Monitoring System">
+  <meta property="og:image" content="https://ajoydas76.github.io/Safe_Guard/logo.png">
+
+  <!-- Twitter / X Sharing -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="SafeGuard – Real-Time Worker Safety Monitoring Dashboard">
+  <meta name="twitter:description" content="Real-time worker safety monitoring with sensor data, fall detection, SOS alerts and GPS tracking.">
+  <meta name="twitter:image" content="https://ajoydas76.github.io/Safe_Guard/logo.png">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "SafeGuard Monitoring System",
+    "url": "https://ajoydas76.github.io/Safe_Guard/",
+    "description": "Real-time worker safety monitoring dashboard with temperature, humidity, pressure, motion, fall detection, SOS alerts and GPS tracking.",
+    "applicationCategory": "MonitoringApplication",
+    "operatingSystem": "Web"
+  }
+  </script>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <!-- External JS Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===== Boot Loading Screen ===== -->
+  <div id="bootLoader" aria-live="polite" aria-label="Loading SafeGuard command interface">
+    <div class="boot-inner">
+      <h1 class="boot-title">SAFEGUARD</h1>
+      <p class="boot-subtitle">Initializing Command Interface&hellip;</p>
+      <div class="boot-bar-track">
+        <div class="boot-bar-fill" id="bootBarFill"></div>
+      </div>
+      <div class="boot-percent" id="bootPercent">0%</div>
+    </div>
+  </div>
+
+
+  <!-- ===== Premium Post-Login Loader ===== -->
+  <div id="authCodeLoader" aria-live="polite" aria-label="Loading SafeGuard dashboard">
+    <div class="auth-loader-card">
+      <div class="auth-loader-top">
+        <div class="auth-loader-brand"><i class="fa-solid fa-shield-halved"></i> SAFEGUARD / SYSTEM LOADER</div>
+        <div class="auth-loader-status" id="authLoaderStatus">INITIALIZING...</div>
+      </div>
+      <div class="auth-code-window" id="authCodeWindow"></div>
+      <div class="auth-loader-bottom">
+        <div class="auth-progress-meta">
+          <span id="authLoaderText">LOADING SOURCE CODE...</span>
+          <strong id="authLoaderPercent">0%</strong>
+        </div>
+        <div class="auth-progress-track"><div class="auth-progress-fill" id="authLoaderFill"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Login Screen ===== -->
+  <div id="loginScreen" class="hidden-screen">
+    <div class="login-card">
+      <div class="login-icon"><img src="logo.png" alt="SafeGuard logo" style="width:100%;height:100%;object-fit:contain;"></div>
+      <h1 class="login-title">SAFEGUARD</h1>
+      <p class="login-subtitle">Secure Access &middot; Command Center</p>
+
+      <div class="login-error" id="loginError"><i class="fa-solid fa-triangle-exclamation"></i> <span id="loginErrorText">Invalid credentials</span></div>
+
+      <form id="loginForm" autocomplete="on">
+        <div class="login-field">
+          <label for="loginEmail">Email</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-envelope"></i>
+            <input type="email" id="loginEmail" name="email" placeholder="you@example.com" autocomplete="username" required>
+          </div>
+        </div>
+        <div class="login-field">
+          <label for="loginPassword">Password</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-lock"></i>
+            <input type="password" id="loginPassword" name="password" placeholder="••••••••" autocomplete="current-password" required>
+          </div>
+        </div>
+        <button type="submit" class="login-submit" id="loginSubmitBtn"><i class="fa-solid fa-right-to-bracket"></i> LOGIN</button>
+      </form>
+
+      <p class="login-foot">Authorized personnel only</p>
+    </div>
+  </div>
+
+  <!-- Collapsible Navigation -->
+  <aside id="sidebar" role="navigation" aria-label="Main navigation">
+    <div class="brand">
+      <div class="brand-icon"><img id="brandLogoImg" src="logo.png" alt="SafeGuard logo" style="width:100%;height:100%;object-fit:contain;border-radius:8px;"></div>
+      <div class="brand-text">
+        <h1>SAFEGUARD</h1>
+        <span>COMMAND CENTER</span>
+      </div>
+    </div>
+    <ul class="nav-menu">
+      <li class="nav-item active"><a href="#"><i class="fa-solid fa-house"></i> Dashboard</a></li>
+      <li class="nav-item"><a href="#"><i class="fa-solid fa-tower-broadcast"></i> Live Monitoring</a></li>
+      <li class="nav-item"><a href="#"><i class="fa-solid fa-users"></i> Workers</a></li>
+      <li class="nav-item"><a href="#" onclick="openAlertsModal(event)"><i class="fa-solid fa-triangle-exclamation"></i> Alerts</a></li>
+      <li class="nav-item"><a href="#" onclick="openTrackingModal(event)"><i class="fa-solid fa-map-location-dot"></i> Map Tracking</a></li>
+      <li class="nav-item"><a href="#" onclick="openReportsModal(event)"><i class="fa-solid fa-chart-column"></i> Reports</a></li>
+    </ul>
+  </aside>
+  
+
+  <!-- Main Area -->
+  <main id="mainContent">
+    <header class="glass-panel">
+      <div class="header-left">
+        <i class="fa-solid fa-bars nav-toggle" id="menuBtn" role="button" tabindex="0" aria-label="Toggle navigation menu" aria-expanded="false"></i>
+        <span class="cmd-title">SAFEGUARD COMMAND</span>
+        <span class="status-badge" id="connPill" role="status" aria-live="polite"><i class="fa-solid fa-circle" style="font-size: 6px;" aria-hidden="true"></i> WAITING</span>
+      </div>
+      <div class="header-right">
+        <button class="btn-action" id="audioBtn" onclick="toggleAudio()" aria-pressed="false" aria-label="Toggle alert sound"><i class="fa-solid fa-volume-xmark" id="audioIcon" aria-hidden="true"></i> Audio: OFF</button>
+        <button class="btn-action" onclick="toggleTheme()" aria-label="Toggle light/dark theme"><i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i> Theme</button>
+        <button class="btn-action" id="exportBtn" onclick="exportWorkerData()" aria-label="Export worker data to Excel"><i class="fa-solid fa-download" aria-hidden="true"></i> Export</button>
+        <div class="clock-box"><i class="fa-regular fa-clock"></i> <span id="liveClock">--:--:--</span></div>
+        <button class="btn-action" id="logoutBtn" onclick="handleLogout()" aria-label="Log out" title="Log out"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> <span id="logoutUserLabel">Logout</span></button>
+      </div>
+    </header>
+
+    <div class="row">
+      <div class="card glass-panel system-card">
+        <div class="system-icon" id="sysIcon"><i class="fa-solid fa-hourglass-start"></i></div>
+        <div class="system-text">
+          <h2 id="sysStatusText">AWAITING FIREBASE</h2>
+          <h3 id="sysSubText">NO DATA STREAM RECEIVED</h3>
+          <p>Connecting to Realtime DB...</p>
+        </div>
+      </div>
+
+      <!-- Emergency SOS card removed (unreliable buzzer trigger). The two remaining
+           cards below/above now share the full row width via their existing flex values. -->
+
+      <div class="card glass-panel worker-info-card">
+        <div class="worker-avatar"><i class="fa-solid fa-user"></i></div>
+        <div class="worker-details">
+          <div><span>ID :</span> SV-001</div>
+          <div><span>Status :</span> <b style="color: var(--amber);" id="workerStatus">OFFLINE</b></div>
+          <div><span>Name :</span> Worker 01</div>
+          <div><span>Shift :</span> 08:00 - 16:00</div>
+          <div><span>Vest ID :</span> VEST-001</div>
+          <div><span>Sync :</span> <span id="lastSyncTime">--:--:--</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SENSOR METRICS -->
+    <div class="sensor-grid">
+      <div class="sensor-card-v2 glass-panel">
+        <div class="sensor-body-v2">
+          <div class="sensor-icon-box" style="color: var(--red); filter: drop-shadow(0 0 6px rgba(255,51,102,0.6));"><i class="fa-solid fa-temperature-half"></i></div>
+          <div class="sensor-info-box">
+            <span class="sensor-title-v2">TEMPERATURE</span>
+            <div class="sensor-val-v2"><span id="tempVal">--</span> <small>°C</small></div>
+            <span class="sensor-status-v2" id="tempStatus">Waiting...</span>
+            <span class="sensor-range-v2">Range: 15°C - 45°C</span>
+          </div>
+        </div>
+        <div class="sparkline-box-v2"><canvas id="tempSpark"></canvas></div>
+      </div>
+
+      <div class="sensor-card-v2 glass-panel">
+        <div class="sensor-body-v2">
+          <div class="sensor-icon-box" style="color: var(--cyan); filter: drop-shadow(0 0 6px rgba(0,242,255,0.6));"><i class="fa-solid fa-droplet"></i></div>
+          <div class="sensor-info-box">
+            <span class="sensor-title-v2">HUMIDITY</span>
+            <div class="sensor-val-v2"><span id="humVal">--</span> <small>%</small></div>
+            <span class="sensor-status-v2" id="humStatus">Waiting...</span>
+            <span class="sensor-range-v2">Range: 20% - 90%</span>
+          </div>
+        </div>
+        <div class="sparkline-box-v2"><canvas id="humSpark"></canvas></div>
+      </div>
+
+      <div class="sensor-card-v2 glass-panel">
+        <div class="sensor-body-v2">
+          <div class="sensor-icon-box" style="color: var(--purple); filter: drop-shadow(0 0 6px rgba(168,85,247,0.6));"><i class="fa-solid fa-gauge-high"></i></div>
+          <div class="sensor-info-box">
+            <span class="sensor-title-v2">PRESSURE</span>
+            <div class="sensor-val-v2"><span id="presVal">--</span> <small>hPa</small></div>
+            <span class="sensor-status-v2" id="presStatus">Waiting...</span>
+            <span class="sensor-range-v2">Range: 950 - 1050 hPa</span>
+          </div>
+        </div>
+        <div class="sparkline-box-v2"><canvas id="presSpark"></canvas></div>
+      </div>
+
+      <div class="sensor-card-v2 glass-panel" style="justify-content: flex-start;">
+        <div class="sensor-body-v2">
+          <div class="sensor-icon-box" id="motionIconBox" style="color: var(--yellow); filter: drop-shadow(0 0 6px rgba(234,179,8,0.6));"><i class="fa-solid fa-person-walking" id="motionIcon"></i></div>
+          <div class="sensor-info-box">
+            <span class="sensor-title-v2">MOTION STATE</span>
+            <div class="sensor-val-v2" style="font-size: 15px;"><span id="motionStateVal">--</span></div>
+            <span class="sensor-status-v2" id="fallAlertStatus">Waiting...</span>
+            <span class="sensor-range-v2" id="sosAlertStatus">SOS: Inactive</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 6px; margin-top: 20px;">
+          <span class="badge badge-safe" id="fallBadge" style="width: 100%; text-align: center;">NO FALL</span>
+          <span class="badge badge-safe" id="sosBadge" style="width: 100%; text-align: center;">SOS NORMAL</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Sensor Charts -->
+    <div class="row">
+      <div class="card glass-panel col-flex-chart neon-card-red">
+        <div class="card-title icon-temp-chart">Live Temperature Chart</div>
+        <div class="chart-box"><canvas id="mainChart"></canvas></div>
+      </div>
+
+      <div class="card glass-panel col-flex-chart">
+        <div class="card-title icon-hum-chart">Live Humidity Chart</div>
+        <div class="chart-box"><canvas id="humChart"></canvas></div>
+      </div>
+
+      <div class="card glass-panel col-flex-chart neon-card-purple">
+        <div class="card-title icon-pres-chart">Live Pressure Chart</div>
+        <div class="chart-box"><canvas id="presChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Device / Map / Workers -->
+    <div class="row">
+      <div class="card glass-panel col-flex-1">
+        <div class="card-title icon-device">Device Connection</div>
+        <div class="device-conn-list">
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-microchip"></i> ESP32</div> <span id="stEsp32" style="color: var(--amber);">Waiting...</span></div>
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-location-dot"></i> GPS Module</div> <span id="stGps" style="color: var(--amber);">Waiting...</span></div>
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-person-running"></i> MPU6050</div> <span id="stMotion" style="color: var(--amber);">Waiting...</span></div>
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-temperature-high"></i> BME280</div> <span id="stTemp" style="color: var(--amber);">Waiting...</span></div>
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-wifi"></i> Internet</div> <span id="stNet" style="color: var(--amber);">Waiting...</span></div>
+        </div>
+        <div class="signal-bar-box"><span>Signal</span><span style="color: var(--amber); font-weight: 700;" id="rssiVal">-- dBm</span></div>
+      </div>
+
+      <div class="card glass-panel col-flex-1-5">
+        <div class="card-title icon-satellite">
+          <span class="sat-title-group">
+            <span class="sat-title-icon" aria-hidden="true">
+              <span class="sat-title-ring"></span>
+              <span class="sat-title-earth"></span>
+              <span class="sat-title-orbit"><i class="fa-solid fa-satellite"></i></span>
+            </span>Live Satellite Tracking
+          </span>
+          <span style="font-size: 9px; color: var(--cyan); cursor: pointer;" onclick="openFullMap()" role="button" tabindex="0" aria-label="Open full-screen map"><i class="fa-solid fa-expand" aria-hidden="true"></i> Full View</span>
+        </div>
+        <div class="map-wrapper" onclick="openFullMap()" role="button" tabindex="0" aria-label="Open full-screen GPS map">
+          <div class="map-overlay-btn" aria-hidden="true"><i class="fa-solid fa-expand"></i> TAP FOR FULL MAP</div>
+          <div id="map"></div>
+        </div>
+      </div>
+
+      <div class="card glass-panel col-flex-1">
+        <div class="card-title icon-users">Workers Online</div>
+        <div style="font-family: Orbitron; font-size: 18px; font-weight: 800; margin-bottom: 4px;" id="onlineWorkerCount">0 / 20</div>
+        <div style="font-size: 8px; color: var(--text-muted); margin-bottom: 6px;">Total Active Streaming</div>
+        <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px;">
+          <div id="onlineWorkerBar" style="width: 0%; height: 100%; background: var(--green); border-radius: 4px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History / Alerts -->
+    <div class="row">
+      <div class="card glass-panel col-flex-2">
+        <div class="card-title icon-history">Event / Alert History</div>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>TIME</th><th>EVENT</th><th>STATUS</th><th>MOTION / TEMP</th></tr></thead>
+            <tbody id="eventLogTable" aria-live="off">
+              <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Awaiting sensor data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card glass-panel alert-card col-flex-1-5">
+        <div class="card-title">Active Alerts <span class="alert-count" id="activeAlertCount">0</span></div>
+        <div id="alertBox" role="alert" aria-live="assertive"><div style="font-size: 10px; color: var(--text-muted); text-align: center; padding: 15px 0;">No active hazardous alerts</div></div>
+      </div>
+    </div>
+
+    <footer>
+      <span>© 2026 SafeGuard Monitoring System.</span>
+      <span>Live Firebase Active</span>
+    </footer>
+  </main>
+
+  <!-- Full Screen Map Modal -->
+  <div class="map-modal" id="mapModal" role="dialog" aria-modal="true" aria-label="Full-screen GPS map">
+    <div class="map-modal-content">
+      <div class="map-modal-header">
+        <h3><i class="fa-solid fa-earth-americas"></i> FULL SCREEN GPS SATELLITE TRACKING</h3>
+        <button class="close-modal-btn" onclick="closeFullMap()" aria-label="Close full-screen map"><i class="fa-solid fa-xmark" aria-hidden="true"></i> CLOSE</button>
+      </div>
+      <div id="fullMap"></div>
+    </div>
+  </div>
+
+  <!-- Reports Modal -->
+  <div class="map-modal" id="reportsModal" role="dialog" aria-modal="true" aria-label="Worker reports">
+    <div class="map-modal-content">
+      <div class="map-modal-header">
+        <h3><i class="fa-solid fa-chart-column"></i> WORKER REPORTS</h3>
+        <button class="close-modal-btn" onclick="closeReportsModal()" aria-label="Close reports"><i class="fa-solid fa-xmark" aria-hidden="true"></i> CLOSE</button>
+      </div>
+      <div id="reportsBody">
+        <div class="report-range-tabs">
+          <button type="button" class="report-tab active" data-range="daily" onclick="setReportRange('daily')">DAILY</button>
+          <button type="button" class="report-tab" data-range="weekly" onclick="setReportRange('weekly')">WEEKLY</button>
+          <button type="button" class="report-tab" data-range="monthly" onclick="setReportRange('monthly')">MONTHLY</button>
+        </div>
+
+        <div id="reportSummaryCards" class="report-summary-grid"></div>
+
+        <div id="reportChartsWrap">
+          <div class="report-chart-wrap">
+            <div class="report-chart-title">Temperature &amp; Humidity Trend</div>
+            <canvas id="reportTrendChart"></canvas>
+          </div>
+          <div class="report-chart-wrap">
+            <div class="report-chart-title">Fall &amp; SOS Alerts</div>
+            <canvas id="reportAlertChart"></canvas>
+          </div>
+        </div>
+
+        <div id="reportConnectivityWrap" class="report-connectivity-wrap"></div>
+
+        <div id="reportStateMsg" class="report-state-msg" style="display:none;"></div>
+
+        <button class="btn-action" id="reportExportBtn" onclick="exportReportData()"><i class="fa-solid fa-download"></i> Export Report (Excel)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Tracking Modal -->
+  <div class="map-modal" id="trackingModal" role="dialog" aria-modal="true" aria-label="Worker movement tracking">
+    <div class="map-modal-content tracking-modal-content">
+      <div class="map-modal-header">
+        <h3><i class="fa-solid fa-route"></i> WORKER MOVEMENT TRACKING</h3>
+        <button class="close-modal-btn" onclick="closeTrackingModal()" aria-label="Close tracking view"><i class="fa-solid fa-xmark" aria-hidden="true"></i> CLOSE</button>
+      </div>
+      <div class="report-range-tabs" style="padding: 10px 16px 0;">
+        <button type="button" class="report-tab active" data-trange="daily" onclick="setTrackingRange('daily')">DAILY</button>
+        <button type="button" class="report-tab" data-trange="weekly" onclick="setTrackingRange('weekly')">WEEKLY</button>
+        <button type="button" class="report-tab" data-trange="monthly" onclick="setTrackingRange('monthly')">MONTHLY</button>
+      </div>
+      <div id="trackingSummary" class="tracking-summary"></div>
+      <div id="trackingMap"></div>
+      <div id="trackingStateMsg" class="report-state-msg" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- All Alerts Modal -->
+  <div class="map-modal" id="alertsModal" role="dialog" aria-modal="true" aria-label="All alerts">
+    <div class="map-modal-content alerts-modal-content">
+      <div class="map-modal-header">
+        <h3><i class="fa-solid fa-triangle-exclamation"></i> ALL ALERTS</h3>
+        <button class="close-modal-btn" onclick="closeAlertsModal()" aria-label="Close alerts view"><i class="fa-solid fa-xmark" aria-hidden="true"></i> CLOSE</button>
+      </div>
+      <div id="alertsBody">
+        <div class="report-range-tabs">
+          <button type="button" class="report-tab active" data-arange="daily" onclick="setAlertsRange('daily')">DAILY</button>
+          <button type="button" class="report-tab" data-arange="weekly" onclick="setAlertsRange('weekly')">WEEKLY</button>
+          <button type="button" class="report-tab" data-arange="monthly" onclick="setAlertsRange('monthly')">MONTHLY</button>
+        </div>
+
+        <div id="alertsSummaryCards" class="report-summary-grid"></div>
+
+        <div id="alertsListWrap" class="alert-log-list"></div>
+
+        <div id="alertsStateMsg" class="report-state-msg" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
