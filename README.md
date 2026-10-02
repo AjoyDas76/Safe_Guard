@@ -1,6 +1,21 @@
 # 🦺👷🏻‍♂️ SafeGuard-Smart Safety System for Industrial Workers
 
-An ESP32 and LoRa based Smart Safety Vest and Safety Helmet for industrial worker monitoring, fall detection, GPS tracking, environmental monitoring, emergency SOS and real-time IoT communication.
+An ESP32 and LoRa based **Smart Safety Vest and Smart Safety Helmet** designed for industrial worker safety monitoring, fall detection, GPS tracking, environmental monitoring, emergency SOS alerts, and real-time IoT communication.
+
+SafeGuard combines **ESP32, LoRa, GPS, MPU6050, BME280, MQ-2, MAX30100, Firebase, solar charging, and piezoelectric energy harvesting** to build a connected industrial worker safety system.
+
+## Project Overview
+
+SafeGuard is an IoT-based industrial safety system consisting of:
+
+- 🦺 Smart Safety Vest
+- ⛑️ Smart Safety Helmet
+- 📍 GPS Worker Tracking
+- 🚨 Fall Detection & Emergency SOS
+- 🌡️ Environmental Monitoring
+- 📡 Long-Range LoRa Communication
+- ☁️ Firebase Cloud Monitoring
+- 📊 Real-Time Web Dashboard
 
 ## Features
 - 🌡️ Environmental Monitoring (BME280)
