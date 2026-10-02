@@ -2591,3 +2591,56 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
     .card.glass-panel:hover,
     .sensor-card-v2:hover { transform: translateY(-3px); }
   }
+/* =========================================================
+   SafeGuard SEO Introduction
+   ========================================================= */
+
+.seo-intro {
+  width: calc(100% - 40px);
+  max-width: 1400px;
+  margin: 20px auto 10px;
+  padding: 24px 28px;
+  border: 1px solid rgba(0, 242, 255, 0.15);
+  border-radius: 14px;
+  background: rgba(5, 11, 20, 0.72);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+
+.seo-intro h1 {
+  margin: 0 0 10px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(20px, 2vw, 28px);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #ffffff;
+}
+
+.seo-intro p {
+  margin: 8px 0;
+  max-width: 1100px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.seo-intro strong {
+  color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .seo-intro {
+    width: calc(100% - 24px);
+    padding: 18px;
+    margin: 14px auto 8px;
+  }
+
+  .seo-intro h1 {
+    font-size: 19px;
+  }
+
+  .seo-intro p {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+}
