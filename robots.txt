@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ajoydas76.github.io/Safe_Guard/sitemap.xml
