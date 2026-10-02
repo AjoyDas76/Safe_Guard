@@ -1,6 +1,6 @@
 # 🦺👷🏻‍♂️ SafeGuard-Smart Safety System for Industrial Workers
 
-An IoT-based wearable safety vest and Helmet powered by **ESP32**, **LoRa**, **Arduino NANO**, **MQ-02** , **MAX30100**, **PiezoElectric Charging** and a **solar charging system**.
+An ESP32 and LoRa based Smart Safety Vest and Safety Helmet for industrial worker monitoring, fall detection, GPS tracking, environmental monitoring, emergency SOS and real-time IoT communication.
 
 ## Features
 - 🌡️ Environmental Monitoring (BME280)
