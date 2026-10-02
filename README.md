@@ -17,18 +17,36 @@ SafeGuard is an IoT-based industrial safety system consisting of:
 - ☁️ Firebase Cloud Monitoring
 - 📊 Real-Time Web Dashboard
 
-## Features
-- 🌡️ Environmental Monitoring (BME280)
-- 📍 GPS Tracking (NEO-M8N)
-- 🚶 Motion & Fall Detection (MPU6050)
-- 📡 Long-range Communication (SX1278 RA-02 LoRa)
-- ♒︎ Object/Proximity Detection (Ultrasonic Sensor)
-- 🔥 Harmful Gas Detection (MQ-02)
-- 💓 Oximetry and Heart Rate Monitoring
-- ☀️ Solar Charging (DFRobot Solar Power Manager 5V)
-- 🕳️ Piezo Energy Harvesting (Piezo Elements)
-- 🆘 SOS Emergency Button
-- 🔋 Battery-powered wearable system
+## Key Features
+
+### 🦺 Smart Safety Vest
+- Real-time industrial worker monitoring
+- MPU6050-based motion and fall detection
+- BME280 temperature and humidity monitoring
+- GPS worker location tracking
+- LoRa long-range communication
+- Emergency SOS alert system
+- Firebase IoT cloud synchronization
+- Real-time web monitoring dashboard
+
+### ⛑️ Smart Safety Helmet
+- Industrial worker helmet safety monitoring
+- Ultrasonic obstacle and proximity detection
+- MQ-2 harmful gas detection
+- MAX30100 heart rate and SpO₂ monitoring
+- Wi-Fi and GSM connectivity
+- Firebase-based remote monitoring
+
+### ⚡ Smart Power System
+- Solar-powered charging
+- Piezoelectric energy harvesting
+- Rechargeable Li-ion battery system
+- Low-power wearable safety architecture
+
+## Technologies Used
+
+`ESP32` `Arduino Nano` `LoRa` `GPS` `MPU6050` `BME280`
+`MQ-2` `MAX30100` `Firebase` `IoT` `GSM` `Wi-Fi`
 
 ## Hardware
 - ESP32 DevKit V1
