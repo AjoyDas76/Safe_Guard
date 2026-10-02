@@ -15,8 +15,8 @@ Goal: confirm every physical unit (both Arduino Nanos and every sensor/module) w
 | Vibration motor | `Vibration_Motor_Test.ino` | ✅ Verified (powered via AMS1117, not direct 5V) |
 | ESP-01 (reflashed with custom firmware) | `ESP01_AT_BaudScan_Test.ino` → `ESP01_WiFi_Test.ino` | ✅ Verified — connects to WiFi, gets an IP |
 | ESP-01 → Firebase upload | `ESP01_Firebase_Test.ino` | ✅ Verified — HTTP 200, `/helmet1/live` and `/helmet1/logs` populated |
-| SIM800L GSM | *(pending)* | ⏳ Waiting on a dedicated 3.7–4.2V (~2A peak) power source |
-| LDR + LED headlamp | — | Not applicable to Nano firmware — this is an independent relay-based circuit, not connected to either Nano |
+| SIM800L GSM | `SIM800L_MSG_Test.ino` `SIM800L_Call_Test.ino` | ✅ Verified (Call+MSG) |
+| LDR + LED headlamp | — | ✅ Verified-Not applicable to Nano firmware — this is an independent relay-based circuit, not connected to either Nano |
 
 ## Notes / decisions made during this phase
 
