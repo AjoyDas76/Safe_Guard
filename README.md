@@ -96,7 +96,7 @@ Combined project materials, documentation and final-release resources.
 
 ## System Architecture
 
-```text
+```
 SafeGuard
 │
 ├── 🦺 Smart Safety Vest
@@ -117,10 +117,11 @@ SafeGuard
 └── ☁️ IoT Monitoring Platform
     ├── Firebase
     └── Web Dashboard
-
-## Repository Structure
 ```
-.
+## Repository Structure
+
+```
+SafeGuard
 ├── index.html          ← Web dashboard (must stay at repo root for GitHub Pages)
 ├── sw.js                ← Dashboard's service worker (root-scoped, must stay here)
 │
