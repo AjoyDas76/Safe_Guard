@@ -48,6 +48,32 @@ SafeGuard is an IoT-based industrial safety system consisting of:
 `ESP32` `Arduino Nano` `LoRa` `GPS` `MPU6050` `BME280`
 `MQ-2` `MAX30100` `Firebase` `IoT` `GSM` `Wi-Fi`
 
+## Project Resources
+
+### 🌐 Live Monitoring Dashboard
+
+[Open SafeGuard Web Dashboard](https://ajoydas76.github.io/Safe_Guard/)
+
+Real-time worker safety monitoring dashboard for sensor data, worker status, alerts, GPS tracking and environmental monitoring.
+
+### 🦺 Smart Safety Vest
+
+[Explore Smart Safety Vest](./vest/)
+
+The Smart Safety Vest focuses on worker fall detection, motion monitoring, environmental sensing, GPS tracking, LoRa communication and emergency safety features.
+
+### ⛑️ Smart Safety Helmet
+
+[Explore Smart Safety Helmet](./helmet/)
+
+The Smart Safety Helmet includes obstacle detection, harmful gas monitoring, heart-rate and SpO₂ monitoring, and wireless communication.
+
+### 📦 Final Project
+
+[Explore Final Project](./final-project/)
+
+Combined project materials, documentation and final-release resources.
+
 ## Hardware
 - ESP32 DevKit V1
 - Arduino NANO
@@ -67,6 +93,30 @@ SafeGuard is an IoT-based industrial safety system consisting of:
 - Active Buzzer
 - SOS Push Button
 - On/Off Switch
+
+## System Architecture
+
+```text
+SafeGuard
+│
+├── 🦺 Smart Safety Vest
+│   ├── ESP32
+│   ├── MPU6050
+│   ├── BME280
+│   ├── GPS
+│   └── LoRa
+│
+├── ⛑️ Smart Safety Helmet
+│   ├── Arduino Nano
+│   ├── Ultrasonic Sensor
+│   ├── MQ-2
+│   ├── MAX30100
+│   ├── Wi-Fi
+│   └── GSM
+│
+└── ☁️ IoT Monitoring Platform
+    ├── Firebase
+    └── Web Dashboard
 
 ## Repository Structure
 ```
