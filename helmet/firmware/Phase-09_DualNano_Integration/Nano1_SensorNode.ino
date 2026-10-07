@@ -76,29 +76,6 @@ void setup() {
 
 unsigned long lastSend = 0;
 
-// Buzzer 1 and Buzzer 2 are both active-type (fixed internal tone — can't be
-// changed by code/tone()), so they're told apart by ON pattern instead of pitch:
-// Buzzer 1 = continuous, Buzzer 2 = intermittent beep-beep-beep.
-unsigned long buzzer2LastToggle = 0;
-bool buzzer2State = false;
-#define BUZZER2_BEEP_INTERVAL 200 // ms
-
-void updateBuzzers(bool obstacleAlert, bool gasAlert, bool healthAlert) {
-  digitalWrite(BUZZER1, obstacleAlert ? HIGH : LOW); // continuous
-
-  bool buzzer2ShouldAlert = gasAlert || healthAlert;
-  if (buzzer2ShouldAlert) {
-    if (millis() - buzzer2LastToggle > BUZZER2_BEEP_INTERVAL) {
-      buzzer2LastToggle = millis();
-      buzzer2State = !buzzer2State;
-      digitalWrite(BUZZER2, buzzer2State ? HIGH : LOW);
-    }
-  } else {
-    digitalWrite(BUZZER2, LOW);
-    buzzer2State = false;
-  }
-}
-
 void loop() {
   pox.update();
   if (pox.getSpO2() > 0) {
@@ -118,7 +95,8 @@ void loop() {
 
   bool healthAlert = vitalsReady && (lastHR < 50 || lastHR > 120 || lastSpO2 < 90);
 
-  updateBuzzers(obstacleAlert, gasAlert, healthAlert);
+  digitalWrite(BUZZER1, obstacleAlert ? HIGH : LOW);
+  digitalWrite(BUZZER2, (gasAlert || healthAlert) ? HIGH : LOW);
   digitalWrite(VIBRATION_PIN, (obstacleAlert || gasAlert || healthAlert) ? HIGH : LOW);
 
   if (millis() - lastSend > 1000) {
