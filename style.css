@@ -1,1146 +1,1311 @@
-/* ===== Design tokens ===== */
-:root {
-  --color-bg: #F5F3ED;
-  --color-paper: #FFFFFE;
-  --color-ink: #1C231F;
-  --color-ink-soft: #545A54;
-  --color-green: #0B5E3C;
-  --color-green-dark: #073F28;
-  --color-primary: #0B5E3C;
-  --color-primary-hover: #073F28;
-  --color-gold: #C9A03E;
-  --color-gold-soft: #E8DCB8;
-  --color-maroon: #8C2F2F;
-  --color-pass-bg: #EAF3EC;
-  --color-fail-bg: #FBEBEB;
-  --color-box: #FBFAF5;
-  --color-input-bg: #FCFBF7;
-  --color-border: #D8D4C6;
-  --color-line: #EAE6D9;
-  --color-dash: rgba(11, 94, 60, 0.3);
-  --color-dot: rgba(11, 94, 60, 0.06);
-  --line: 1px solid rgba(11, 94, 60, 0.18);
-  --radius-s: 4px;
-  --radius-m: 10px;
-  --shadow-card: 0 1px 2px rgba(15, 30, 20, 0.06), 0 8px 24px rgba(15, 30, 20, 0.06);
-  --watermark-opacity: 0.1;
-  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath fill='%230B5E3C' d='M1 1l6 6 6-6'/%3E%3C/svg%3E");
+// ===== সেটিংস (দরকার হলে এখানে বদলান) =====
+const CONFIG = {
+  // মেধাতালিকায় কতজনকে দেখানো হবে। 0 = সবাইকে (সম্পূর্ণ তালিকা), 10 = শুধু প্রথম ১০ জন
+  MERIT_LIMIT: 0
+};
 
-  /* grade colours */
-  --g-ap-bg: #CBE8D4; --g-ap-fg: #05442A;
-  --g-a-bg:  #EAF3EC; --g-a-fg:  #0B5E3C;
-  --g-am-bg: #EEF2D6; --g-am-fg: #4F5A12;
-  --g-b-bg:  #FBF3D6; --g-b-fg:  #7A5A06;
-  --g-c-bg:  #FCE9D2; --g-c-fg:  #8A4B0A;
-  --g-d-bg:  #E3E8ED; --g-d-fg:  #36424F;
+// ===== Grade point map (edit here if your board uses different values) =====
+const GRADE_POINTS = {
+  "A+": 5.0,
+  "A": 4.0,
+  "A-": 3.5,
+  "B": 3.0,
+  "C": 2.0,
+  "D": 1.0,
+  "F": 0.0
+};
 
-  --font-display: "Noto Serif Bengali", "Tiro Bangla", "Times New Roman", serif;
-  --font-body: "Noto Serif Bengali", "Tiro Bangla", "Times New Roman", serif;
+// গ্রেড অনুযায়ী CSS ক্লাস
+const GRADE_CLASS = {
+  "A+": "g-ap",
+  "A": "g-a",
+  "A-": "g-am",
+  "B": "g-b",
+  "C": "g-c",
+  "D": "g-d",
+  "F": "fail"
+};
+
+// ছবি ডাউনলোডের জন্য গ্রেডের রঙ [ব্যাকগ্রাউন্ড, লেখা]
+const GRADE_PALETTE = {
+  "A+": ["#CBE8D4", "#05442A"],
+  "A": ["#EAF3EC", "#0B5E3C"],
+  "A-": ["#EEF2D6", "#4F5A12"],
+  "B": ["#FBF3D6", "#7A5A06"],
+  "C": ["#FCE9D2", "#8A4B0A"],
+  "D": ["#E3E8ED", "#36424F"],
+  "F": ["#FBEBEB", "#8C2F2F"]
+};
+
+let DATA = null; // { school, exams: [{id,label,examClass,file}] } — index only, no students
+const examCache = {}; // examId -> full exam object (with students), filled in lazily
+let currentExamId = null;
+
+const el = (id) => document.getElementById(id);
+
+// ===== নির্ধারিত সময়ে ফলাফল প্রকাশ (exams.json-এ "publishAt") =====
+// publishAt না থাকলে ফলাফল সাথে সাথে প্রকাশিত ধরা হয়।
+// ফরম্যাট: "2026-10-20T10:00:00+06:00" (বাংলাদেশ সময়)
+let serverOffset = 0; // সার্ভারের ঘড়ি − ব্যবহারকারীর ফোনের ঘড়ি (ms)
+let unlockTimer = null;
+const DEFAULT_EMPTY_TEXT = "এই পরীক্ষার ফলাফল এখনো প্রকাশিত হয়নি। শীঘ্রই প্রকাশ করা হবে।";
+
+function nowMs() { return Date.now() + serverOffset; }
+
+function publishTime(examMeta) {
+  if (!examMeta || !examMeta.publishAt) return null;
+  const t = Date.parse(examMeta.publishAt);
+  return isNaN(t) ? null : t;
 }
 
-/* ===== Dark mode (শুধু স্ক্রিনে — প্রিন্ট সবসময় লাইট) ===== */
-@media screen {
-  html[data-theme="dark"] {
-    color-scheme: dark;
-    --color-bg: #101512;
-    --color-paper: #18201B;
-    --color-ink: #E8ECE6;
-    --color-ink-soft: #A7B0A8;
-    --color-green: #2E8B62;
-    --color-green-dark: #8FD3B0;
-    --color-primary: #25805A;
-    --color-primary-hover: #2E8B62;
-    --color-gold: #C9A03E;
-    --color-gold-soft: rgba(201, 160, 62, 0.16);
-    --color-maroon: #EE9A9A;
-    --color-pass-bg: #1B3327;
-    --color-fail-bg: #3A1D1D;
-    --color-box: #1D2721;
-    --color-input-bg: #111712;
-    --color-border: #3A463E;
-    --color-line: #2A352E;
-    --color-dash: rgba(143, 211, 176, 0.3);
-    --color-dot: rgba(143, 211, 176, 0.05);
-    --line: 1px solid rgba(143, 211, 176, 0.2);
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
-    --watermark-opacity: 0.06;
-    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath fill='%238FD3B0' d='M1 1l6 6 6-6'/%3E%3C/svg%3E");
+function isPublished(examMeta) {
+  const t = publishTime(examMeta);
+  return t === null || nowMs() >= t;
+}
 
-    --g-ap-bg: #1F4D35; --g-ap-fg: #A8EBC6;
-    --g-a-bg:  #1B3327; --g-a-fg:  #8FD3B0;
-    --g-am-bg: #333A17; --g-am-fg: #D3E08A;
-    --g-b-bg:  #40380F; --g-b-fg:  #F0D27A;
-    --g-c-bg:  #44301A; --g-c-fg:  #F3C48D;
-    --g-d-bg:  #2E353D; --g-d-fg:  #C3CDD8;
+// ফলাফল ডেটা আছে এবং প্রকাশের সময় হয়ে গেছে
+function isOpen(examMeta) {
+  return !!examMeta && (examMeta.studentCount || 0) > 0 && isPublished(examMeta);
+}
+
+function toBn(n) {
+  return String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
+}
+
+function formatPublishTime(ms) {
+  try {
+    return new Intl.DateTimeFormat("bn-BD", {
+      timeZone: "Asia/Dhaka", day: "numeric", month: "long", year: "numeric",
+      hour: "numeric", minute: "2-digit", hour12: true
+    }).format(new Date(ms));
+  } catch (e) {
+    return new Date(ms).toLocaleString();
   }
 }
 
-* { box-sizing: border-box; }
-
-html, body {
-  margin: 0;
-  padding: 0;
-  background: var(--color-bg);
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
-}
-
-body {
-  background-image:
-    radial-gradient(circle at 1px 1px, var(--color-dot) 1px, transparent 0);
-  background-size: 22px 22px;
-  min-height: 100vh;
-}
-
-.wrap {
-  position: relative;
-  z-index: 1;
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 0 18px 64px;
-}
-
-/* School logo watermark - scrolls with the page, sits behind all content */
-.wrap::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: url("logo.png");
-  background-repeat: no-repeat;
-  background-position: center 220px;
-  background-size: min(70vw, 640px);
-  opacity: var(--watermark-opacity);
-  pointer-events: none;
-  z-index: -1;
-  print-color-adjust: exact;
-  -webkit-print-color-adjust: exact;
-}
-
-/* প্রিন্টের জন্য জলছাপ (img হিসেবে, যাতে PDF-এ ব্যাকগ্রাউন্ড গ্রাফিক্স বন্ধ থাকলেও আসে) */
-.print-watermark { display: none; }
-
-a { color: inherit; }
-
-.table-scroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* ===== Header (board letterhead) ===== */
-.letterhead {
-  position: relative;
-  border-bottom: 3px solid var(--color-green);
-  padding: 14px 0 18px;
-  margin-bottom: 26px;
-}
-
-.letterhead-inner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  justify-content: center;
-  text-align: center;
-  flex-direction: column;
-}
-
-.letterhead-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  justify-content: center;
-}
-
-.theme-btn {
-  flex: none;
-  margin-left: auto;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 1px solid var(--color-border);
-  background: var(--color-paper);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  transition: transform 0.08s ease;
-}
-
-.theme-btn:active { transform: scale(0.92); }
-
-.school-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--color-gold);
-  background: var(--color-paper);
-  flex-shrink: 0;
-}
-
-.school-logo-fallback {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: 2px solid var(--color-gold);
-  background: var(--color-green);
-  color: var(--color-gold-soft);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display);
-  font-size: 22px;
-  flex-shrink: 0;
-}
-
-.school-name {
-  font-family: var(--font-display);
-  font-size: clamp(22px, 5vw, 30px);
-  font-weight: 700;
-  color: var(--color-green-dark);
-  margin: 0;
-  line-height: 1.25;
-}
-
-.school-address {
-  font-size: 14.5px;
-  color: var(--color-ink-soft);
-  margin: 2px 0 0;
-}
-
-.exam-tag {
-  margin-top: 10px;
-  display: inline-block;
-  font-size: 14px;
-  line-height: 1.4;
-  letter-spacing: 0.02em;
-  color: var(--color-green-dark);
-  background: var(--color-gold-soft);
-  border: 1px solid var(--color-gold);
-  padding: 4px 14px;
-  border-radius: 999px;
-}
-
-/* ===== Search ===== */
-.search-card {
-  background: var(--color-paper);
-  border: var(--line);
-  border-radius: var(--radius-m);
-  box-shadow: var(--shadow-card);
-  padding: 22px;
-  margin-bottom: 22px;
-}
-
-.search-label {
-  display: block;
-  font-size: 15px;
-  color: var(--color-ink-soft);
-  margin-bottom: 8px;
-}
-
-.search-label-gap { margin-top: 16px; }
-
-.search-row {
-  display: flex;
-  gap: 10px;
-}
-
-.search-row .btn {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-#rollInput {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--font-body);
-  font-size: 17px;
-  padding: 12px 14px;
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-s);
-  background: var(--color-input-bg);
-  color: var(--color-ink);
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-#rollInput:focus {
-  border-color: var(--color-green);
-}
-
-.exam-select {
-  width: 100%;
-  font-family: var(--font-body);
-  font-size: 16px;
-  font-weight: 600;
-  padding: 12px 40px 12px 14px;
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-s);
-  background: var(--color-input-bg) var(--select-arrow) no-repeat right 14px center;
-  background-size: 12px;
-  color: var(--color-green-dark);
-  outline: none;
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
-
-.exam-select:focus {
-  border-color: var(--color-green);
-}
-
-.exam-empty-msg {
-  display: none;
-  margin: 10px 0 0;
-  font-size: 14px;
-  color: var(--color-maroon);
-  background: var(--color-fail-bg);
-  border: 1px solid rgba(140, 47, 47, 0.3);
-  padding: 8px 12px;
-  border-radius: var(--radius-s);
-}
-
-.exam-loading-msg {
-  display: none;
-  margin: 10px 0 0;
-  font-size: 14px;
-  color: var(--color-ink-soft);
-}
-
-.exam-loading-msg.active {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.exam-loading-msg.active::before {
-  content: "";
-  width: 13px;
-  height: 13px;
-  flex-shrink: 0;
-  border: 2px solid rgba(11, 94, 60, 0.25);
-  border-top-color: var(--color-green);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-.btn {
-  font-family: var(--font-body);
-  font-size: 16px;
-  font-weight: 600;
-  border: none;
-  border-radius: var(--radius-s);
-  padding: 12px 22px;
-  cursor: pointer;
-  transition: transform 0.08s ease, background 0.15s ease;
-}
-
-.btn:active { transform: scale(0.97); }
-.btn:disabled { opacity: 0.6; cursor: default; transform: none; }
-
-.btn-block { width: 100%; }
-
-.btn-primary {
-  background: var(--color-primary);
-  color: #fff;
-}
-
-.btn-primary:hover { background: var(--color-primary-hover); }
-
-.btn-outline {
-  background: transparent;
-  border: 1.5px solid var(--color-green);
-  color: var(--color-green-dark);
-}
-
-.btn-outline:hover { background: var(--color-pass-bg); }
-
-.btn-outline.active { background: var(--color-pass-bg); }
-
-.hint {
-  font-size: 13.5px;
-  color: var(--color-ink-soft);
-  margin: 8px 0 0;
-}
-
-.error-msg {
-  display: none;
-  margin-top: 12px;
-  background: var(--color-fail-bg);
-  border: 1px solid rgba(140, 47, 47, 0.35);
-  color: var(--color-maroon);
-  padding: 10px 14px;
-  border-radius: var(--radius-s);
-  font-size: 15px;
-}
-
-.panel-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.panel-actions .btn { padding: 12px 8px; }
-
-/* ===== Result card ===== */
-.result-card {
-  display: none;
-  position: relative;
-  background: var(--color-paper);
-  border: var(--line);
-  border-radius: var(--radius-m);
-  box-shadow: var(--shadow-card);
-  padding: 26px 22px 22px;
-  overflow: hidden;
-  margin-bottom: 22px;
-}
-
-.result-card::before {
-  content: "";
-  position: absolute;
-  inset: 6px;
-  border: 1px solid rgba(201, 160, 62, 0.55);
-  border-radius: 6px;
-  pointer-events: none;
-}
-
-.result-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 14px;
-  padding-bottom: 14px;
-  border-bottom: 1px dashed var(--color-dash);
-}
-
-.student-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.student-name {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0 0 6px;
-  color: var(--color-ink);
-  overflow-wrap: anywhere;
-}
-
-.student-meta {
-  font-size: 15px;
-  color: var(--color-ink-soft);
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 3px 12px;
-}
-
-.student-meta b { color: var(--color-ink); font-weight: 600; }
-
-/* GPA / Rank badges */
-.result-badges {
-  display: flex;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.badge {
-  min-width: 92px;
-  text-align: center;
-  padding: 8px 12px 9px;
-  border-radius: var(--radius-m);
-  background: var(--color-pass-bg);
-  border: 1px solid rgba(11, 94, 60, 0.25);
-  color: var(--color-green-dark);
-  print-color-adjust: exact;
-  -webkit-print-color-adjust: exact;
-}
-
-.badge.fail {
-  background: var(--color-fail-bg);
-  border-color: rgba(140, 47, 47, 0.35);
-  color: var(--color-maroon);
-}
-
-.badge-label {
-  display: block;
-  font-size: 13px;
-  color: var(--color-ink-soft);
-}
-
-.badge-value {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-.badge-sub {
-  display: block;
-  font-size: 12px;
-  line-height: 1.3;
-  color: var(--color-ink-soft);
-}
-
-.badge-sub:empty { display: none; }
-
-/* Subject table */
-.subject-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 16px;
-  font-size: 15px;
-}
-
-.subject-table th {
-  text-align: center;
-  font-weight: 600;
-  color: var(--color-green-dark);
-  border-bottom: 2px solid var(--color-green);
-  padding: 8px 6px;
-}
-
-.subject-table td {
-  text-align: center;
-  padding: 9px 6px;
-  border-bottom: 1px solid var(--color-line);
-}
-
-.subject-table tr:last-child td { border-bottom: none; }
-
-.grade-pill {
-  display: inline-block;
-  min-width: 36px;
-  text-align: center;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 14px;
-  background: var(--g-a-bg);
-  color: var(--g-a-fg);
-  print-color-adjust: exact;
-  -webkit-print-color-adjust: exact;
-}
-
-.grade-pill.g-ap { background: var(--g-ap-bg); color: var(--g-ap-fg); }
-.grade-pill.g-a  { background: var(--g-a-bg);  color: var(--g-a-fg); }
-.grade-pill.g-am { background: var(--g-am-bg); color: var(--g-am-fg); }
-.grade-pill.g-b  { background: var(--g-b-bg);  color: var(--g-b-fg); }
-.grade-pill.g-c  { background: var(--g-c-bg);  color: var(--g-c-fg); }
-.grade-pill.g-d  { background: var(--g-d-bg);  color: var(--g-d-fg); }
-
-.grade-pill.fail {
-  background: var(--color-fail-bg);
-  color: var(--color-maroon);
-}
-
-/* Summary strip */
-.summary {
-  margin-top: 18px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.summary.two-col {
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.summary-box {
-  background: var(--color-box);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-s);
-  padding: 12px 10px;
-  text-align: center;
-}
-
-.summary-box .label {
-  font-size: 13px;
-  color: var(--color-ink-soft);
-  margin-bottom: 4px;
-}
-
-.summary-box .value {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.status-pass { color: var(--color-green-dark); }
-.status-fail { color: var(--color-maroon); }
-
-.result-actions {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.result-actions .btn {
-  flex: 1 1 150px;
-  padding: 12px 10px;
-}
-
-/* Signature block (visible on screen and print) */
-.signature-block {
-  margin-top: 46px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 28px;
-}
-
-.signature-col {
-  text-align: center;
-}
-
-.signature-line {
-  border-top: 1.5px solid var(--color-ink-soft);
-  margin: 0 8px 6px;
-}
-
-.signature-label {
-  font-size: 14px;
-  color: var(--color-ink-soft);
-  margin: 0;
-}
-
-/* Footer */
-.footer {
-  text-align: center;
-  font-size: 14.5px;
-  color: var(--color-ink-soft);
-  margin-top: 34px;
-}
-
-.footer a {
-  color: var(--color-green-dark);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.footer a:hover {
-  text-decoration: underline;
-}
-
-.install-wrap {
-  display: flex;
-  justify-content: center;
-  margin-top: 8px;
-}
-
-/* ===== Toast ===== */
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 22px;
-  transform: translate(-50%, 20px);
-  max-width: min(90vw, 420px);
-  background: var(--color-green-dark);
-  color: var(--color-paper);
-  font-size: 15px;
-  padding: 11px 18px;
-  border-radius: 999px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  z-index: 1000;
-  text-align: center;
-}
-
-.toast.show {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
-/* ===== Print ===== */
-@media print {
-  @page {
-    size: A4;
-    margin: 10mm;
+function formatCountdown(ms) {
+  let sec = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(sec / 86400); sec -= d * 86400;
+  const h = Math.floor(sec / 3600); sec -= h * 3600;
+  const m = Math.floor(sec / 60); sec -= m * 60;
+  const p2 = (n) => toBn(String(n).padStart(2, "0"));
+  return (d > 0 ? toBn(d) + " দিন " : "") + p2(h) + " ঘণ্টা " + p2(m) + " মিনিট " + p2(sec) + " সেকেন্ড";
+}
+
+// ----- "ফলাফল প্রকাশিত হয়নি" পপআপ -----
+function updateLockedCountdown(examMeta) {
+  const t = publishTime(examMeta);
+  const box = el("lockedCountdown");
+  if (t === null) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  box.textContent = formatCountdown(t - nowMs());
+}
+
+function showNotPublishedPopup(examMeta) {
+  const t = publishTime(examMeta);
+  el("lockedText").textContent = t !== null
+    ? "ফলাফল প্রকাশ করা হবে " + formatPublishTime(t) + " (বাংলাদেশ সময়)। নির্ধারিত সময়ের পর আবার চেষ্টা করুন।"
+    : "এই পরীক্ষার ফলাফল এখনো প্রকাশিত হয়নি। শীঘ্রই প্রকাশ করা হবে।";
+  updateLockedCountdown(examMeta);
+  el("lockedModal").hidden = false;
+  el("lockedCloseBtn").focus();
+}
+
+function closeLockedPopup() {
+  el("lockedModal").hidden = true;
+}
+
+function refreshExamLabels() {
+  const select = el("examSelect");
+  ((DATA && DATA.exams) || []).forEach((exam) => {
+    const opt = Array.from(select.options).find((o) => o.value === exam.id);
+    if (opt) opt.textContent = (exam.label || exam.id) + (isPublished(exam) ? "" : " 🔒");
+  });
+}
+
+// নির্বাচিত পরীক্ষার সময় হয়ে গেলে নিজে থেকেই খুলে দেয়
+function startUnlockWatcher(examMeta) {
+  clearInterval(unlockTimer);
+  if (!examMeta || publishTime(examMeta) === null || isPublished(examMeta)) return;
+  unlockTimer = setInterval(() => {
+    if (currentExamId !== examMeta.id) { clearInterval(unlockTimer); return; }
+    if (isPublished(examMeta)) {
+      clearInterval(unlockTimer);
+      closeLockedPopup();
+      refreshExamLabels();
+      onExamChange();
+      showToast("ফলাফল এখন প্রকাশিত হয়েছে!");
+    } else if (!el("lockedModal").hidden) {
+      updateLockedCountdown(examMeta);
+    }
+  }, 1000);
+}
+// ----- হোমপেজের ওপরের কাউন্টডাউন ব্যানার -----
+// যে পরীক্ষার publishAt এখনো আসেনি, তাদের মধ্যে সবচেয়ে কাছেরটার জন্য দেখায়।
+// ব্যানারে নাম বদলাতে চাইলে exams.json-এ "bannerLabel" দিন (যেমন "২য় মূল্যায়নের")।
+let bannerTimer = null;
+
+function nextUpcomingExam() {
+  const list = ((DATA && DATA.exams) || [])
+    .filter((e) => publishTime(e) !== null && !isPublished(e))
+    .sort((a, b) => publishTime(a) - publishTime(b));
+  return list[0] || null;
+}
+
+function updateCountdownBanner() {
+  const banner = el("countdownBanner");
+  const exam = nextUpcomingExam();
+  if (!exam) {
+    clearInterval(bannerTimer);
+    bannerTimer = null;
+    banner.hidden = true;
+    return;
   }
+  el("cbLabel").textContent = exam.bannerLabel || exam.label || exam.id;
+  el("cbTime").textContent = formatCountdown(publishTime(exam) - nowMs());
+  banner.hidden = false;
+}
 
-  html, body {
-    height: auto !important;
-    min-height: 0 !important;
-  }
+function startCountdownBanner() {
+  clearInterval(bannerTimer);
+  bannerTimer = null;
+  if (!nextUpcomingExam()) { el("countdownBanner").hidden = true; return; }
+  updateCountdownBanner();
+  let shown = nextUpcomingExam();
+  bannerTimer = setInterval(() => {
+    const now = nextUpcomingExam();
+    if (shown && (!now || now.id !== shown.id)) {
+      // সময় হয়ে গেছে — তালা খোলার ভাব সব জায়গায় আপডেট
+      refreshExamLabels();
+      if (currentExamId !== shown.id) showToast((shown.label || "ফলাফল") + " এখন প্রকাশিত হয়েছে!");
+    }
+    shown = now;
+    updateCountdownBanner();
+  }, 1000);
+}
 
-  body {
-    background: #fff;
-    background-image: none;
-  }
+// ===== Theme (dark / light) =====
+function currentTheme() {
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+}
 
-  .wrap {
-    min-height: 0 !important;
-  }
-
-  .search-card, .result-actions, .footer, .no-print {
-    display: none !important;
-  }
-
-  /* জলছাপ: পেজের মাঝখানে, সব কনটেন্টের পেছনে */
-  .wrap::before { display: none !important; }
-
-  .print-watermark {
-    display: block !important;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    width: 130mm;
-    height: auto;
-    transform: translate(-50%, -50%);
-    opacity: 0.1;
-    z-index: -1;
-    pointer-events: none;
-  }
-
-  /* কার্ডের সাদা ব্যাকগ্রাউন্ড জলছাপ ঢেকে দিচ্ছিল */
-  .result-card {
-    background: transparent !important;
-  }
-
-  .wrap {
-    max-width: 100%;
-    padding: 12px 0 0;
-  }
-
-  .letterhead {
-    padding: 0 0 10px;
-    margin-bottom: 14px;
-  }
-
-  .school-logo, .school-logo-fallback {
-    width: 70px;
-    height: 70px;
-  }
-
-  .school-name {
-    font-size: 40px;
-  }
-
-  .school-address {
-    font-size: 15px;
-  }
-
-  .exam-tag {
-    margin-top: 8px;
-    padding: 5px 16px;
-    font-size: 14px;
-  }
-
-  .result-card {
-    box-shadow: none;
-    border: 1px solid #999;
-    padding: 12px 14px 14px;
-    margin-bottom: 0;
-    page-break-inside: avoid;
-  }
-
-  .result-card::before {
-    inset: 4px;
-  }
-
-  .result-top {
-    padding-bottom: 6px;
-  }
-
-  .student-name {
-    font-size: 17px;
-    margin-bottom: 3px;
-  }
-
-  .student-meta {
-    font-size: 13.5px;
-  }
-
-  .badge {
-    min-width: 78px;
-    padding: 3px 9px 4px;
-  }
-
-  .badge-label { font-size: 11.5px; }
-  .badge-value { font-size: 19px; }
-  .badge-sub { font-size: 10.5px; }
-
-  .subject-table {
-    margin-top: 11px;
-    font-size: 15.5px;
-  }
-
-  .subject-table th {
-    padding: 9px 9px;
-  }
-
-  .subject-table td {
-    padding: 9px 9px;
-  }
-
-  .grade-pill {
-    padding: 3px 10px;
-    font-size: 14.5px;
-  }
-
-  .summary {
-    margin-top: 11px;
-    gap: 9px;
-  }
-
-  .summary-box {
-    padding: 10px 9px;
-  }
-
-  .summary-box .label {
-    font-size: 13px;
-  }
-
-  .summary-box .value {
-    font-size: 19px;
-  }
-
-  .signature-block {
-    margin-top: 58px;
-    page-break-inside: avoid;
+function applyTheme(theme, save) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const btn = el("themeBtn");
+  if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", theme === "dark" ? "#101512" : "#0B5E3C");
+  if (save) {
+    try { localStorage.setItem("theme", theme); } catch (e) { /* ignore */ }
   }
 }
 
-
-/* ===== "ফলাফল প্রকাশিত হয়নি" পপআপ ===== */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-  background: rgba(10, 20, 15, 0.55);
-}
-.modal-backdrop[hidden] { display: none; }
-
-.modal-box {
-  width: 100%;
-  max-width: 400px;
-  background: var(--color-paper);
-  color: var(--color-ink);
-  border: var(--line);
-  border-top: 5px solid var(--color-green);
-  border-radius: var(--radius-m);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-  padding: 26px 22px 22px;
-  text-align: center;
+function initTheme() {
+  applyTheme(currentTheme(), false);
+  el("themeBtn").addEventListener("click", () => {
+    applyTheme(currentTheme() === "dark" ? "light" : "dark", true);
+  });
+  // ইউজার নিজে বেছে না নিলে সিস্টেমের থিম বদলালে সাথে সাথে বদলাবে
+  if (window.matchMedia) {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (e) => {
+      let saved = null;
+      try { saved = localStorage.getItem("theme"); } catch (err) { /* ignore */ }
+      if (saved !== "dark" && saved !== "light") applyTheme(e.matches ? "dark" : "light", false);
+    };
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+  }
 }
 
-.modal-icon { font-size: 40px; line-height: 1; margin-bottom: 8px; }
-
-.modal-title {
-  margin: 0 0 10px;
-  font-size: 22px;
-  color: var(--color-green-dark);
+// ===== Helpers =====
+function showLoading() {
+  el("loadingBar").classList.add("active");
 }
 
-.modal-text {
-  margin: 0 0 14px;
-  font-size: 16px;
-  line-height: 1.6;
-  color: var(--color-ink-soft);
+function hideLoading() {
+  el("loadingBar").classList.remove("active");
 }
 
-.modal-countdown {
-  margin: 0 0 18px;
-  padding: 10px 8px;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-green-dark);
-  background: var(--color-pass-bg);
-  border-radius: var(--radius-s);
+let toastTimer = null;
+function showToast(msg) {
+  const t = el("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2800);
 }
 
-@media print { .modal-backdrop { display: none !important; } }
-
-/* ===== Loading bar ===== */
-.loading-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--color-green);
-  transform: scaleX(0.05);
-  transform-origin: left;
-  opacity: 0;
-  z-index: 999;
-  transition: opacity 0.2s ease;
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+// Roll normalize: "1", "01", "০১" — সবই এক রোল হিসেবে ধরা হবে
+function normalizeRoll(value) {
+  let s = String(value === undefined || value === null ? "" : value).trim();
+  s = s.replace(/[০-৯]/g, (d) => "০১২৩৪৫৬৭৮৯".indexOf(d));
+  s = s.replace(/\s+/g, "");
+  if (/^\d+$/.test(s)) return String(parseInt(s, 10));
+  return s.toLowerCase();
 }
 
-.loading-bar.active {
-  opacity: 1;
-  animation: loadingPulse 1.1s ease-in-out infinite;
+// "২য় মূল্যায়ন পরীক্ষার ফলাফল" -> "২য় মূল্যায়ন"
+function shortLabel(label) {
+  return String(label || "")
+    .replace(/\s*পরীক্ষার\s*ফলাফল\s*$/, "")
+    .replace(/\s*ফলাফল\s*$/, "")
+    .trim() || String(label || "");
 }
 
-@keyframes loadingPulse {
-  0% { transform: scaleX(0.06); }
-  50% { transform: scaleX(0.65); }
-  100% { transform: scaleX(0.95); }
+// ===== URL (সরাসরি লিংক: ?exam=...&roll=...) =====
+function buildUrl(examId, roll) {
+  const u = new URL(location.href);
+  u.hash = "";
+  u.search = "";
+  if (examId) u.searchParams.set("exam", examId);
+  if (roll) u.searchParams.set("roll", roll);
+  return u.toString();
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+function updateUrl(examId, roll) {
+  try {
+    history.replaceState(null, "", buildUrl(examId, roll));
+  } catch (err) {
+    // file:// ইত্যাদিতে সম্ভব না হলে চুপচাপ বাদ
+  }
 }
 
-/* ===== Merit list / Stats / Compare panels ===== */
-.merit-card {
-  background: var(--color-paper);
-  border: var(--line);
-  border-radius: var(--radius-m);
-  box-shadow: var(--shadow-card);
-  padding: 20px;
-  margin-bottom: 22px;
+// ===== Data loading =====
+async function loadData() {
+  showLoading();
+  try {
+    const res = await fetch("exams.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("exams.json fetch failed");
+    // ব্যবহারকারীর ফোনের ঘড়ি বদলে ফেললেও যাতে সময়ের তালা না খোলে — সার্ভারের সময় ধরা হচ্ছে
+    const serverDate = Date.parse(res.headers.get("Date") || "");
+    if (!isNaN(serverDate)) serverOffset = serverDate - Date.now();
+    DATA = await res.json();
+    renderLetterhead(DATA.school);
+    startCountdownBanner();
+    await setupExamSelect(DATA.exams || []);
+  } catch (err) {
+    console.error(err);
+    showError("রেজাল্ট ডেটা লোড করা যায়নি। ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন।");
+  } finally {
+    hideLoading();
+  }
 }
 
-.merit-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 14px;
+// Fetches results/<id>.json the first time an exam is selected, then caches it.
+async function loadExamStudents(examMeta, { silent } = {}) {
+  if (examCache[examMeta.id]) return examCache[examMeta.id];
+  if (!examMeta.file) return null;
+  if (!isPublished(examMeta)) return null; // প্রকাশের সময় হয়নি — ডেটা আনাই হবে না
+  if (!silent) showLoading();
+  try {
+    const res = await fetch(examMeta.file, { cache: "no-store" });
+    if (!res.ok) throw new Error(`${examMeta.file} fetch failed`);
+    const full = await res.json();
+    examCache[examMeta.id] = full;
+    return full;
+  } catch (err) {
+    console.error(err);
+    return null;
+  } finally {
+    if (!silent) hideLoading();
+  }
 }
 
-.merit-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.35;
-  color: var(--color-green-dark);
+function renderLetterhead(school) {
+  if (!school) return;
+  el("schoolName").textContent = school.name || "";
+  el("schoolAddress").textContent = school.address || "";
+  document.title = (school.name ? school.name + " — " : "") + "রেজাল্ট পোর্টাল";
+
+  const logoImg = el("schoolLogo");
+  const fallback = el("schoolLogoFallback");
+  if (school.logo) {
+    logoImg.src = school.logo;
+    logoImg.style.display = "block";
+    fallback.style.display = "none";
+    logoImg.onerror = () => {
+      logoImg.style.display = "none";
+      fallback.style.display = "flex";
+    };
+  } else {
+    logoImg.style.display = "none";
+    fallback.style.display = "flex";
+  }
+  fallback.textContent = (school.name || "?").trim().charAt(0);
 }
 
-.merit-close {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  font-size: 18px;
-  line-height: 1;
-  color: var(--color-ink-soft);
-  cursor: pointer;
-  padding: 6px 10px;
+async function setupExamSelect(exams) {
+  const select = el("examSelect");
+  select.innerHTML = "";
+
+  if (!exams.length) {
+    const opt = document.createElement("option");
+    opt.textContent = "কোনো পরীক্ষা পাওয়া যায়নি";
+    select.appendChild(opt);
+    return;
+  }
+
+  exams.forEach((exam) => {
+    const opt = document.createElement("option");
+    opt.value = exam.id;
+    opt.textContent = (exam.label || exam.id) + (isPublished(exam) ? "" : " 🔒");
+    select.appendChild(opt);
+  });
+
+  // লিংকে ?exam= থাকলে সেটা, নাহলে সর্বশেষ প্রকাশিত পরীক্ষা
+  const params = new URLSearchParams(location.search);
+  const wantedExam = params.get("exam");
+  const wantedRoll = params.get("roll");
+
+  const openExams = exams.filter(isOpen);
+  const withData = exams.filter((e) => (e.studentCount || 0) > 0);
+  let defaultExam = openExams.length ? openExams[openExams.length - 1]
+    : (withData.length ? withData[withData.length - 1] : exams[0]);
+  const fromLink = wantedExam && exams.find((e) => e.id === wantedExam);
+  if (fromLink) defaultExam = fromLink;
+  select.value = defaultExam.id;
+await onExamChange();
+  select.addEventListener("change", () => {
+    updateUrl(null, null); // পুরোনো লিংকের roll/exam সরিয়ে ফেলা
+    onExamChange();
+  });
+
+  // লিংকে roll থাকলে অটো সার্চ
+  if (wantedRoll) {
+    el("rollInput").value = wantedRoll;
+    await search();
+  }
 }
 
-.merit-filter {
-  width: 100%;
-  font-family: var(--font-body);
-  font-size: 16px;
-  padding: 10px 14px;
-  margin-bottom: 4px;
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-s);
-  background: var(--color-input-bg);
-  color: var(--color-ink);
-  outline: none;
+function getCurrentExamMeta() {
+  if (!DATA || !Array.isArray(DATA.exams)) return null;
+  return DATA.exams.find((e) => e.id === currentExamId) || null;
 }
 
-.merit-filter:focus { border-color: var(--color-green); }
+async function onExamChange() {
+  currentExamId = el("examSelect").value;
+  hideError();
+  hideResult();
+  el("rollInput").value = "";
+  closePanels();
 
-.merit-note {
-  font-size: 13.5px;
-  color: var(--color-ink-soft);
-  margin: 8px 0 0;
+  const examMeta = getCurrentExamMeta();
+  const examTag = el("examTag");
+  examTag.textContent = examMeta ? [examMeta.examClass, examMeta.label].filter(Boolean).join(" • ") : "";
+
+  const emptyMsg = el("examEmptyMsg");
+  const hasData = isOpen(examMeta);
+  const locked = !!examMeta && (examMeta.studentCount || 0) > 0 && !isPublished(examMeta);
+  const lockTime = locked ? publishTime(examMeta) : null;
+  emptyMsg.textContent = lockTime !== null
+    ? "এই পরীক্ষার ফলাফল " + formatPublishTime(lockTime) + "-এ প্রকাশিত হবে।"
+    : DEFAULT_EMPTY_TEXT;
+  emptyMsg.style.display = hasData ? "none" : "block";
+
+  clearInterval(unlockTimer);
+  if (locked) {
+    startUnlockWatcher(examMeta);
+    showNotPublishedPopup(examMeta);
+  }
+
+  // pre-fetch this exam's result file in the background so the search feels instant
+  const loadingMsg = el("examLoadingMsg");
+  if (examMeta && hasData && !examCache[examMeta.id]) {
+    loadingMsg.classList.add("active");
+    await loadExamStudents(examMeta, { silent: true });
+    loadingMsg.classList.remove("active");
+  } else {
+    loadingMsg.classList.remove("active");
+  }
 }
 
-.merit-table th, .merit-table td {
-  text-align: left;
+function showError(msg) {
+  const box = el("errorMsg");
+  box.textContent = msg;
+  box.style.display = "block";
 }
 
-.merit-table td:first-child, .merit-table th:first-child { width: 52px; text-align: center; }
-
-.merit-table .medal { font-size: 20px; line-height: 1; }
-
-.merit-table tr.self-row td {
-  background: var(--color-pass-bg);
-  font-weight: 700;
+function hideError() {
+  el("errorMsg").style.display = "none";
 }
 
-.merit-empty {
-  text-align: center !important;
-  color: var(--color-ink-soft);
-  padding: 18px 6px !important;
+function hideResult() {
+  el("resultCard").style.display = "none";
+  el("compareSection").style.display = "none";
+  compareToken++; // চলমান তুলনার কাজ বাতিল
+  lastRenderedStudent = null;
 }
 
-/* Stats */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+// ===== Result calculation =====
+function calcResult(student) {
+  const subjects = student.subjects || [];
+  let hasFail = false;
+  let failCount = 0;
+  let total = 0;
+
+  const rows = subjects.map((s) => {
+    const point = GRADE_POINTS[s.grade];
+    const point_ = point === undefined ? 0 : point;
+    const isFail = s.grade === "F";
+    if (isFail) {
+      hasFail = true;
+      failCount++;
+    }
+    total += point_;
+    return {
+      name: s.name,
+      total: s.total !== undefined ? s.total : null,
+      obtained: s.obtained !== undefined ? s.obtained : null,
+      grade: s.grade,
+      point: point_,
+      isFail
+    };
+  });
+
+  const rawAvg = subjects.length ? total / subjects.length : 0;
+  const gpa = hasFail ? 0 : rawAvg;
+
+  return {
+    rows,
+    gpa: gpa.toFixed(2),
+    pass: !hasFail,
+    failCount
+  };
 }
 
-.stat-tile {
-  background: var(--color-box);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-s);
-   padding: 12px 10px;
-  text-align: center;
+// Ranks students within an exam by GPA (passed students only; ties share a rank).
+// Returns a Map of roll -> rank.
+function computeRanks(students) {
+  const withResult = students.map((s) => ({ student: s, r: calcResult(s) }));
+  const passed = withResult
+    .filter((x) => x.r.pass)
+    .sort((a, b) => parseFloat(b.r.gpa) - parseFloat(a.r.gpa));
+
+  const rankMap = new Map();
+  let rank = 0;
+  let prevGpa = null;
+  let position = 0;
+  passed.forEach((x) => {
+    position++;
+    if (x.r.gpa !== prevGpa) {
+      rank = position;
+      prevGpa = x.r.gpa;
+    }
+    rankMap.set(String(x.student.roll).trim(), rank);
+  });
+
+  return { rankMap, totalPassed: passed.length, totalStudents: students.length };
 }
 
-.stat-tile .label {
-  font-size: 13.5px;
-  color: var(--color-ink-soft);
-  margin-bottom: 2px;
+// ===== Render result =====
+let lastRenderedStudent = null;
+let lastRenderedExamMeta = null;
+let lastRenderedExam = null;
+let lastRenderedInfo = null; // { r, rank, totalPassed, classText }
+
+function renderResult(student, exam, examMeta) {
+  const r = calcResult(student);
+  lastRenderedStudent = student;
+  lastRenderedExamMeta = examMeta;
+  lastRenderedExam = exam;
+const classText = [student.class, student.section].filter(Boolean).join(" - ") || (examMeta && examMeta.examClass) || "";
+
+  el("studentName").textContent = student.name;
+  el("metaRoll").textContent = student.roll;
+  el("metaClass").textContent = classText;
+
+  // GPA badge
+  el("metaGPA").textContent = r.gpa;
+  el("gpaBadge").className = "badge" + (r.pass ? "" : " fail");
+
+  // Rank badge
+  let rank = null;
+  let totalPassed = 0;
+  const rankBadge = el("rankBadge");
+  if (r.pass && Array.isArray(exam.students)) {
+    const ranks = computeRanks(exam.students);
+    totalPassed = ranks.totalPassed;
+    rank = ranks.rankMap.get(String(student.roll).trim()) || null;
+  }
+  if (!r.pass) {
+    // অনুত্তীর্ণ: মেধাক্রম প্রযোজ্য নয়, তাই বক্সে ফেল বিষয়ের সংখ্যা দেখাই
+    el("rankLabel").textContent = "ফেল বিষয়";
+    el("metaRank").textContent = r.failCount;
+    el("metaRankSub").textContent = "বিষয়ে অনুত্তীর্ণ";
+    rankBadge.className = "badge fail";
+  } else if (rank) {
+    el("rankLabel").textContent = "মেধাক্রম";
+    el("metaRank").textContent = rank;
+    el("metaRankSub").textContent = `${totalPassed} জনের মধ্যে`;
+    rankBadge.className = "badge";
+  } else {
+    el("rankLabel").textContent = "মেধাক্রম";
+    el("metaRank").textContent = "—";
+    el("metaRankSub").textContent = "প্রযোজ্য নয়";
+    rankBadge.className = "badge" + (r.pass ? "" : " fail");
+  }
+  lastRenderedInfo = { r, rank, totalPassed, classText };
+
+  const tbody = el("subjectRows");
+  tbody.innerHTML = "";
+  r.rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    const totalCell = row.total !== null ? row.total : "—";
+    const obtainedCell = row.obtained !== null ? row.obtained : "—";
+    const gradeClass = GRADE_CLASS[row.grade] || "";
+    tr.innerHTML = `
+      <td>${escapeHtml(row.name)}</td>
+      <td>${escapeHtml(totalCell)}</td>
+      <td>${escapeHtml(obtainedCell)}</td>
+      <td><span class="grade-pill ${gradeClass}">${escapeHtml(row.grade)}</span></td>
+      <td>${row.point.toFixed(2)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const statusEl = el("statusValue");
+  statusEl.textContent = r.pass ? "উত্তীর্ণ" : "অনুত্তীর্ণ";
+  statusEl.className = "value " + (r.pass ? "status-pass" : "status-fail");
+
+  el("gpaValue").textContent = r.gpa;
+  el("failValue").textContent = r.failCount;
+
+  const failBox = el("failBox");
+  const summaryGrid = failBox.parentElement;
+  if (r.pass) {
+    failBox.style.display = "none";
+    summaryGrid.classList.add("two-col");
+  } else {
+    failBox.style.display = "";
+    summaryGrid.classList.remove("two-col");
+  }
+
+  el("resultCard").style.display = "block";
+  renderCompare(student.roll);
 }
 
-.stat-tile .value {
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-green-dark);
-  line-height: 1.2;
+// ===== Search =====
+async function search() {
+  hideError();
+  hideResult();
+
+  const rollRaw = el("rollInput").value.trim();
+  if (!rollRaw) {
+    showError("অনুগ্রহ করে একটি Roll Number লিখুন।");
+    return;
+  }
+
+  const examMeta = getCurrentExamMeta();
+  if (!examMeta) {
+    showError("পরীক্ষা নির্বাচন করা যায়নি, একটু পর আবার চেষ্টা করুন।");
+    return;
+  }
+  if (!isOpen(examMeta)) {
+    showNotPublishedPopup(examMeta);
+    return;
+  }
+
+  const searchBtn = el("searchBtn");
+  const originalBtnText = searchBtn.textContent;
+  searchBtn.disabled = true;
+  searchBtn.textContent = "খুঁজছি...";
+  const exam = await loadExamStudents(examMeta);
+  searchBtn.disabled = false;
+  searchBtn.textContent = originalBtnText;
+
+  if (!exam || !Array.isArray(exam.students) || exam.students.length === 0) {
+    showError("এই পরীক্ষার ফলাফল লোড করা যায়নি। ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন।");
+    return;
+  }
+
+  const key = normalizeRoll(rollRaw);
+  const student = exam.students.find((s) => normalizeRoll(s.roll) === key);
+  if (!student) {
+    showError("এই Roll Number-এ কোনো ফলাফল পাওয়া যায়নি। Roll Number আবার যাচাই করুন।");
+    return;
+  }
+
+  renderResult(student, exam, examMeta);
+  updateUrl(examMeta.id, student.roll);
 }
 
-.stat-tile .sub {
-  font-size: 12.5px;
-  color: var(--color-ink-soft);
+// ===== Exam-wise GPA comparison =====
+let compareToken = 0;
+
+async function renderCompare(roll) {
+  const token = ++compareToken;
+  const section = el("compareSection");
+  section.style.display = "none";
+
+  const exams = ((DATA && DATA.exams) || []).filter(isOpen);
+  if (exams.length < 2) return;
+
+  const loaded = await Promise.all(exams.map((e) => loadExamStudents(e, { silent: true })));
+  if (token !== compareToken) return; // এর মধ্যে নতুন সার্চ হয়ে গেছে
+
+  const key = normalizeRoll(roll);
+  const points = [];
+  loaded.forEach((full, i) => {
+    if (!full || !Array.isArray(full.students)) return;
+    const s = full.students.find((x) => normalizeRoll(x.roll) === key);
+    if (!s) return;
+    const r = calcResult(s);
+    points.push({
+      label: shortLabel(exams[i].label || exams[i].id),
+      gpa: parseFloat(r.gpa),
+      pass: r.pass
+    });
+  });
+  if (points.length < 2) return;
+
+  el("compareChart").innerHTML = buildGpaChart(points);
+  el("compareNote").textContent = compareNote(points);
+  section.style.display = "block";
 }
 
-.stats-sub {
-  margin: 20px 0 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--color-ink-soft);
+function compareNote(points) {
+  const prev = points[points.length - 2];
+  const last = points[points.length - 1];
+  if (last.pass && prev.pass) {
+    const diff = last.gpa - prev.gpa;
+    if (Math.abs(diff) < 0.005) return "আগের পরীক্ষার GPA-ই বজায় আছে।";
+    return diff > 0
+      ? `আগের পরীক্ষার তুলনায় GPA ${diff.toFixed(2)} বেড়েছে 🔼`
+      : `আগের পরীক্ষার তুলনায় GPA ${Math.abs(diff).toFixed(2)} কমেছে 🔽`;
+  }
+  if (last.pass && !prev.pass) return "আগের পরীক্ষায় অনুত্তীর্ণ ছিল, এবার সব বিষয়ে উত্তীর্ণ 🎉";
+  if (!last.pass && prev.pass) return "এই পরীক্ষায় এক বা একাধিক বিষয়ে অনুত্তীর্ণ (GPA 0.00 ধরা হয়েছে)।";
+  return "দুটি পরীক্ষাতেই এক বা একাধিক বিষয়ে অনুত্তীর্ণ (GPA 0.00 ধরা হয়েছে)।";
 }
 
-.stats-table { margin-top: 6px; }
-
-.stats-table th:first-child,
-.stats-table td:first-child { text-align: left; }
-
-.stats-table .of { color: var(--color-ink-soft); font-size: 13px; }
-
-.stats-table .top-name {
-  font-size: 12.5px;
-  color: var(--color-ink-soft);
-  max-width: 130px;
-  margin: 0 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+function wrapLabel(text, maxChars) {
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  let cur = "";
+  words.forEach((w) => {
+    if (cur && (cur + " " + w).length > maxChars) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = cur ? cur + " " + w : w;
+}
+  });
+  if (cur) lines.push(cur);
+  return lines.slice(0, 3);
 }
 
-.stats-table .has-fail { color: var(--color-maroon); font-weight: 700; }
+function buildGpaChart(points) {
+  const W = 360, H = 220;
+  const padL = 52, padR = 46, padT = 28, padB = 62;
+  const n = points.length;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const xAt = (i) => (n === 1 ? W / 2 : padL + (i * plotW) / (n - 1));
+  const yAt = (v) => padT + ((5 - v) / 5) * plotH;
+  const maxChars = n > 4 ? 8 : 12;
 
-/* Compare chart */
-.compare-note {
-  margin: 6px 0 4px;
-  font-size: 15px;
-  color: var(--color-ink-soft);
+  let svg = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="পরীক্ষাভিত্তিক GPA তুলনা চার্ট">`;
+
+  for (let v = 0; v <= 5; v++) {
+    const y = yAt(v);
+    svg += `<line class="chart-grid" x1="${padL - 8}" y1="${y}" x2="${W - padR + 10}" y2="${y}"/>`;
+    svg += `<text class="chart-axis" x="${padL - 14}" y="${y + 4}">${v}</text>`;
+  }
+
+  const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${xAt(i).toFixed(1)} ${yAt(p.gpa).toFixed(1)}`).join(" ");
+  svg += `<path class="chart-line" d="${path}"/>`;
+
+  points.forEach((p, i) => {
+    const x = xAt(i);
+    const y = yAt(p.gpa);
+    const cls = p.pass ? "" : " fail";
+    svg += `<circle class="chart-dot${cls}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6"/>`;
+    const valY = p.gpa >= 4.4 ? y + 22 : y - 12;
+    svg += `<text class="chart-val${cls}" x="${x.toFixed(1)}" y="${valY.toFixed(1)}">${p.gpa.toFixed(2)}</text>`;
+    const lines = wrapLabel(p.label, maxChars);
+    lines.forEach((ln, li) => {
+      svg += `<text class="chart-xl" x="${x.toFixed(1)}" y="${H - padB + 24 + li * 15}">${escapeHtml(ln)}</text>`;
+    });
+  });
+
+  svg += "</svg>";
+  return svg;
 }
 
-.chart-svg {
-  display: block;
-  width: 100%;
-  max-width: 520px;
-  height: auto;
-  margin: 0 auto;
+// ===== Panels: merit list & class stats =====
+const PANELS = {
+  merit: { section: "meritSection", btn: "meritToggleBtn" },
+  stats: { section: "statsSection", btn: "statsToggleBtn" }
+};
+
+function closePanels() {
+  Object.keys(PANELS).forEach(closePanel);
 }
 
-.chart-grid { stroke: var(--color-line); stroke-width: 1; }
-.chart-line { fill: none; stroke: var(--color-primary); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.chart-dot { fill: var(--color-primary); stroke: var(--color-paper); stroke-width: 2; }
-.chart-dot.fail { fill: var(--color-maroon); }
-.chart-val { fill: var(--color-ink); font-size: 13px; font-weight: 700; text-anchor: middle; }
-.chart-val.fail { fill: var(--color-maroon); }
-.chart-axis { fill: var(--color-ink-soft); font-size: 11px; text-anchor: end; }
-.chart-xl { fill: var(--color-ink-soft); font-size: 12px; text-anchor: middle; }
-
-/* ===== Responsive ===== */
-@media (min-width: 600px) {
-  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+function closePanel(name) {
+  const p = PANELS[name];
+  el(p.section).style.display = "none";
+  const btn = el(p.btn);
+  btn.classList.remove("active");
+  btn.setAttribute("aria-expanded", "false");
 }
 
-@media (max-width: 480px) {
-  .wrap { padding: 0 14px 56px; }
-  .letterhead { padding: 12px 0 16px; margin-bottom: 20px; }
-  .search-card { padding: 18px 16px; }
-  .search-row .btn { padding: 12px 16px; }
-  .result-card { padding: 20px 14px 18px; }
-  .merit-card { padding: 16px 12px; }
+async function togglePanel(name) {
+  const p = PANELS[name];
+  const section = el(p.section);
+  const btn = el(p.btn);
 
-  .result-top { flex-direction: column; align-items: stretch; gap: 12px; }
-  .result-badges { width: 100%; }
-  .badge { flex: 1; min-width: 0; }
+  if (section.style.display !== "none") {
+    closePanel(name);
+    return;
+  }
 
-  .subject-table { font-size: 14px; }
-  .subject-table th { padding: 8px 3px; font-size: 13.5px; }
-  .subject-table td { padding: 9px 3px; }
-  .merit-table td, .merit-table th { padding-left: 4px; padding-right: 4px; }
-  .merit-table td:first-child, .merit-table th:first-child { width: 40px; }
+  hideError();
+  const examMeta = getCurrentExamMeta();
+  if (!examMeta || !isOpen(examMeta)) {
+    if (examMeta) showNotPublishedPopup(examMeta);
+    else showError("পরীক্ষা নির্বাচন করা যায়নি, একটু পর আবার চেষ্টা করুন।");
+    return;
+  }
 
-  .summary { gap: 8px; }
-  .summary-box { padding: 10px 4px; }
-  .summary-box .label { font-size: 12.5px; }
-  .summary-box .value { font-size: 18px; }
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "লোড হচ্ছে...";
+  const exam = await loadExamStudents(examMeta);
+  btn.disabled = false;
+  btn.textContent = originalText;
 
-  .signature-block { margin-top: 38px; gap: 18px; }
-  .result-actions .btn { flex: 1 1 calc(50% - 5px); }
-  .result-actions #saveImgBtn { flex-basis: 100%; }
-  .stats-table .top-name { max-width: 96px; }
+  if (!exam || !Array.isArray(exam.students) || exam.students.length === 0) {
+    showError("তথ্য লোড করা যায়নি। ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন।");
+    return;
+  }
+
+  closePanels();
+  if (name === "merit") renderMeritList(exam, examMeta);
+  else renderStats(exam, examMeta);
+
+  btn.classList.add("active");
+  btn.setAttribute("aria-expanded", "true");
+  section.style.display = "block";
+  section.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-@media (max-width: 340px) {
-  .badge-value { font-size: 24px; }
-  .panel-actions .btn { font-size: 15px; }
+// ----- Merit list -----
+let meritRowsData = [];
+let meritExamMeta = null;
+
+function renderMeritList(exam, examMeta) {
+  const { rankMap } = computeRanks(exam.students);
+
+  let rowsData = exam.students.map((s) => {
+    const r = calcResult(s);
+    const rank = r.pass ? rankMap.get(String(s.roll).trim()) : null;
+    return { student: s, r, rank };
+  });
+
+  // passed students first (by rank), then failed students (by roll)
+  rowsData.sort((a, b) => {
+    if (a.r.pass !== b.r.pass) return a.r.pass ? -1 : 1;
+    if (a.r.pass) return a.rank - b.rank;
+    return String(a.student.roll).localeCompare(String(b.student.roll), "en", { numeric: true });
+  });
+
+  const limited = CONFIG.MERIT_LIMIT > 0 && rowsData.length > CONFIG.MERIT_LIMIT;
+  if (limited) rowsData = rowsData.slice(0, CONFIG.MERIT_LIMIT);
+
+  meritRowsData = rowsData;
+  meritExamMeta = examMeta;
+
+  el("meritTitle").textContent = limited
+    ? `মেধাতালিকা (প্রথম ${CONFIG.MERIT_LIMIT} জন) — ${examMeta.label || ""}`
+    : `মেধাতালিকা — ${examMeta.label || ""}`;
+
+  el("meritFilter").value = "";
+  paintMeritRows("");
 }
 
-/* ===== কাউন্টডাউন ব্যানার (হোমপেজের ওপরে) ===== */
-.countdown-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 6px 10px;
-  flex: 1;
-  min-width: 0;
-  padding: 10px 14px;
-  text-align: center;
-  font-size: 16px;
-  line-height: 1.5;
-  color: var(--color-green-dark);
-  background: var(--color-pass-bg);
-  border: 1px solid var(--color-gold);
-  border-radius: var(--radius-m);
-  box-shadow: var(--shadow-card);
-}
-.countdown-banner[hidden] { display: none; }
-.cb-time { font-size: 17px; white-space: nowrap; }
-.cb-dot {
-  width: 10px;
-  height: 10px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--color-gold);
-  animation: cb-pulse 1.6s ease-in-out infinite;
-}
-@keyframes cb-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.7); }
-}
-@media (prefers-reduced-motion: reduce) { .cb-dot { animation: none; } }
-@media (max-width: 480px) {
-  .countdown-banner { font-size: 15px; padding: 9px 10px; }
-  .cb-time { font-size: 16px; }
-}
-@media print { .countdown-banner { display: none !important; } }
+function paintMeritRows(query) {
+  const q = String(query || "").trim();
+  const qLower = q.toLowerCase();
+  const qNum = /^[0-9০-৯]+$/.test(q) ? normalizeRoll(q) : null;
 
-.top-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-top: 12px;
+  const rows = meritRowsData.filter(({ student }) => {
+    if (!q) return true;
+    if (qNum !== null) return normalizeRoll(student.roll) === qNum;
+    return String(student.name).toLowerCase().includes(qLower) ||
+      String(student.roll).toLowerCase().includes(qLower);
+  });
+
+  const selfKey = lastRenderedStudent && lastRenderedExamMeta && meritExamMeta &&
+    lastRenderedExamMeta.id === meritExamMeta.id ? normalizeRoll(lastRenderedStudent.roll) : null;
+
+  const medals = { 1: "🥇", 2: "🥈", 3: "🥉" };
+  const tbody = el("meritRows");
+  tbody.innerHTML = "";
+
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="5" class="merit-empty">কোনো ফলাফল পাওয়া যায়নি।</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  rows.forEach(({ student, r, rank }) => {
+    const tr = document.createElement("tr");
+    if (selfKey !== null && normalizeRoll(student.roll) === selfKey) tr.className = "self-row";
+    const rankCell = rank === null || rank === undefined
+      ? "—"
+      : (medals[rank] ? `<span class="medal" title="${rank}">${medals[rank]}</span>` : rank);
+    tr.innerHTML = `
+      <td>${rankCell}</td>
+      <td>${escapeHtml(student.roll)}</td>
+      <td>${escapeHtml(student.name)}</td>
+      <td class="${r.pass ? "status-pass" : "status-fail"}">${r.gpa}</td>
+      <td class="${r.pass ? "status-pass" : "status-fail"}">${r.pass ? "উত্তীর্ণ" : "অনুত্তীর্ণ"}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
-@media print { .top-bar { display: none !important; } }
+// ----- Class stats -----
+function fmtNum(n) {
+  return Number.isInteger(n) ? String(n) : (Math.round(n * 10) / 10).toString();
+}
+
+function computeStats(exam) {
+  const students = exam.students;
+  const total = students.length;
+  const results = students.map((s) => ({ s, r: calcResult(s) }));
+  const passed = results.filter((x) => x.r.pass);
+  const gpas = passed.map((x) => parseFloat(x.r.gpa));
+  const avgGpa = gpas.length ? gpas.reduce((a, b) => a + b, 0) / gpas.length : 0;
+  const topGpa = gpas.length ? Math.max(...gpas) : 0;
+  const perfect = gpas.filter((g) => g >= 5).length;
+
+  let aPlus = 0;
+  const subjMap = new Map();
+  results.forEach(({ s }) => {
+    (s.subjects || []).forEach((sub) => {
+      if (sub.grade === "A+") aPlus++;
+      let m = subjMap.get(sub.name);
+      if (!m) {
+        m = { name: sub.name, total: sub.total, sum: 0, count: 0, max: -Infinity, topNames: [], fail: 0 };
+        subjMap.set(sub.name, m);
+      }
+      if (sub.grade === "F") m.fail++;
+      if (typeof sub.obtained === "number") {
+        m.sum += sub.obtained;
+        m.count++;
+        if (sub.obtained > m.max) {
+          m.max = sub.obtained;
+          m.topNames = [s.name];
+        } else if (sub.obtained === m.max) {
+          m.topNames.push(s.name);
+        }
+      }
+    });
+  });
+
+  return {
+    total,
+    passedCount: passed.length,
+    passRate: total ? (passed.length / total) * 100 : 0,
+    avgGpa,
+    topGpa,
+    perfect,
+    aPlus,
+    subjects: Array.from(subjMap.values())
+  };
+}
+
+function renderStats(exam, examMeta) {
+  const st = computeStats(exam);
+  el("statsTitle").textContent = `ক্লাস পরিসংখ্যান — ${examMeta.label || ""}`;
+
+  const tiles = [
+    { label: "মোট শিক্ষার্থী", value: st.total },
+    { label: "পাসের হার", value: `${fmtNum(st.passRate)}%`, sub: `${st.passedCount} / ${st.total} জন উত্তীর্ণ` },
+    { label: "গড় GPA", value: st.avgGpa.toFixed(2), sub: "উত্তীর্ণদের মধ্যে" },
+    { label: "সর্বোচ্চ GPA", value: st.topGpa.toFixed(2) },
+    { label: "GPA 5.00 প্রাপ্ত", value: st.perfect, sub: "জন শিক্ষার্থী" },
+    { label: "মোট A+", value: st.aPlus, sub: "সব বিষয় মিলিয়ে" }
+  ];
+
+  el("statsGrid").innerHTML = tiles.map((t) => `
+    <div class="stat-tile">
+      <div class="label">${escapeHtml(t.label)}</div>
+      <div class="value">${escapeHtml(t.value)}</div>
+      ${t.sub ? `<div class="sub">${escapeHtml(t.sub)}</div>` : ""}
+    </div>
+  `).join("");
+
+  el("statsRows").innerHTML = st.subjects.map((m) => {
+    const avg = m.count ? fmtNum(m.sum / m.count) : "—";
+    const totalTxt = m.total !== undefined && m.total !== null ? ` <span class="of">/ ${escapeHtml(m.total)}</span>` : "";
+    let top = "—";
+    if (m.count) {
+      const extra = m.topNames.length > 1 ? ` +${m.topNames.length - 1}` : "";
+      top = `<b>${escapeHtml(fmtNum(m.max))}</b>${totalTxt}<div class="top-name">${escapeHtml(m.topNames[0])}${extra}</div>`;
+    }
+    return `
+      <tr>
+        <td>${escapeHtml(m.name)}</td>
+        <td>${escapeHtml(avg)}</td>
+        <td>${top}</td>
+        <td class="${m.fail ? "has-fail" : ""}">${m.fail}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+// ===== Share result =====
+async function shareResult() {
+  if (!lastRenderedStudent || !lastRenderedInfo) return;
+  const r = lastRenderedInfo.r;
+  const examLabel = lastRenderedExamMeta ? lastRenderedExamMeta.label : "";
+  const link = buildUrl(lastRenderedExamMeta && lastRenderedExamMeta.id, lastRenderedStudent.roll);
+  const lines = [
+    examLabel,
+    `${lastRenderedStudent.name} (Roll: ${lastRenderedStudent.roll})`,
+    `GPA: ${r.gpa} — ${r.pass ? "উত্তীর্ণ" : "অনুত্তীর্ণ"}`,
+    link
+  ].filter(Boolean);
+  const text = lines.join("\n");
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "রেজাল্ট", text });
+    } catch (err) {
+      // user cancelled the native share sheet — nothing to do
+    }
+    return;
+  }
+
+  const waUrl = "https://wa.me/?text=" + encodeURIComponent(text);
+  window.open(waUrl, "_blank", "noopener");
+}
+
+// ===== Save result as image (PNG) =====
+function loadImage(src) {
+  return new Promise((resolve) => {
+    if (!src) return resolve(null);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function roundRectPath(ctx, x, y, w, h, rad) {
+  const r = Math.min(rad, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+async function buildResultImage(student, examMeta, exam, info) {
+  const FONT = '"Noto Serif Bengali", "Tiro Bangla", "Times New Roman", serif';
+  const C = {
+    paper: "#FFFFFE", ink: "#1C231F", soft: "#545A54", green: "#0B5E3C", greenDark: "#073F28",
+    gold: "#C9A03E", goldSoft: "#E8DCB8", maroon: "#8C2F2F", passBg: "#EAF3EC", failBg: "#FBEBEB",
+    box: "#FBFAF5", line: "#EAE6D9"
+  };
+
+  try {
+    if (document.fonts && document.fonts.load) {
+      await Promise.all([
+        document.fonts.load('700 30px "Noto Serif Bengali"', "বাংলা"),
+        document.fonts.load('400 30px "Noto Serif Bengali"', "বাংলা"),
+        document.fonts.load('700 30px "Tiro Bangla"', "বাংলা"),
+        document.fonts.load('400 30px "Tiro Bangla"', "বাংলা")
+      ]);
+    }
+  } catch (e) { /* ফন্ট না পেলে সিস্টেম ফন্টেই হবে */ }
+
+  const school = (DATA && DATA.school) || {};
+  const logo = await loadImage(school.logo);
+  const r = info.r;
+
+  const W = 1080;
+  const P = 60;
+  const rowH = 76;
+  const n = r.rows.length;
+  const tableTop = 676;
+  const summaryTop = tableTop + n * rowH + 34;
+  const boxH = 120;
+  const H = summaryTop + boxH + 120;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  const setFont = (size, weight) => { ctx.font = `${weight || 400} ${size}px ${FONT}`; };
+  const fit = (text, maxW, size, weight, minSize) => {
+    let s = size;
+    setFont(s, weight);
+    while (ctx.measureText(text).width > maxW && s > (minSize || 18)) {
+      s -= 1;
+      setFont(s, weight);
+    }
+    return s;
+  };
+  const text = (str, x, y, opt) => {
+    const o = Object.assign({ size: 30, weight: 400, color: C.ink, align: "left", maxW: 0 }, opt);
+    if (o.maxW) fit(str, o.maxW, o.size, o.weight); else setFont(o.size, o.weight);
+    ctx.fillStyle = o.color;
+    ctx.textAlign = o.align;
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(str, x, y);
+  };
+
+  // background + frame
+  ctx.fillStyle = C.paper;
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = C.green;
+  ctx.lineWidth = 8;
+  ctx.strokeRect(14, 14, W - 28, H - 28);
+  ctx.strokeStyle = C.gold;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(30, 30, W - 60, H - 60);
+
+  // watermark
+  if (logo) {
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    const wm = 620;
+    ctx.drawImage(logo, (W - wm) / 2, (H - wm) / 2 + 40, wm, wm);
+    ctx.restore();
+  }
+
+  // header: logo, school name, address
+  const cx = W / 2;
+  if (logo) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, 130, 60, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(logo, cx - 60, 70, 120, 120);
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(cx, 130, 60, 0, Math.PI * 2);
+    ctx.strokeStyle = C.gold;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  }
+  text(school.name || "", cx, 262, { size: 52, weight: 700, color: C.greenDark, align: "center", maxW: W - 2 * P });
+  text(school.address || "", cx, 306, { size: 30, color: C.soft, align: "center", maxW: W - 2 * P });
+
+  ctx.fillStyle = C.green;
+  ctx.fillRect(P, 332, W - 2 * P, 4);
+
+  // exam tag pill
+  const tag = [examMeta && examMeta.examClass, examMeta && examMeta.label].filter(Boolean).join(" • ");
+  if (tag) {
+    const tagSize = fit(tag, W - 2 * P - 60, 30, 400, 20);
+    setFont(tagSize, 400);
+    const tw = Math.min(ctx.measureText(tag).width + 56, W - 2 * P);
+    roundRectPath(ctx, cx - tw / 2, 356, tw, 56, 28);
+    ctx.fillStyle = C.goldSoft;
+    ctx.fill();
+    ctx.strokeStyle = C.gold;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    text(tag, cx, 356 + 38, { size: tagSize, color: C.greenDark, align: "center" });
+  }
+
+  // student block
+  const badgeW = 190;
+  const badgeGap = 16;
+  const badgesLeft = W - P - badgeW * 2 - badgeGap;
+  const nameMaxW = badgesLeft - P - 24;
+  text(student.name, P, 496, { size: 46, weight: 700, color: C.ink, maxW: nameMaxW });
+  text(`Roll: ${student.roll}`, P, 546, { size: 32, color: C.soft, maxW: nameMaxW });
+  if (info.classText) {
+    text(info.classText, P, 590, { size: 32, color: C.soft, maxW: nameMaxW });
+  }
+
+  const drawBadge = (x, label, value, sub, fail) => {
+    const y = 448;
+    roundRectPath(ctx, x, y, badgeW, 136, 16);
+    ctx.fillStyle = fail ? C.failBg : C.passBg;
+    ctx.fill();
+    ctx.strokeStyle = fail ? "rgba(140,47,47,0.4)" : "rgba(11,94,60,0.3)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    text(label, x + badgeW / 2, y + 36, { size: 26, color: C.soft, align: "center" });
+    text(String(value), x + badgeW / 2, y + 88, { size: 50, weight: 700, color: fail ? C.maroon : C.greenDark, align: "center", maxW: badgeW - 20 });
+    if (sub) text(sub, x + badgeW / 2, y + 120, { size: 22, color: C.soft, align: "center", maxW: badgeW - 16 });
+  };
+  drawBadge(badgesLeft, "GPA", r.gpa, "", !r.pass);
+  if (!r.pass) {
+    drawBadge(badgesLeft + badgeW + badgeGap, "ফেল বিষয়", r.failCount, "বিষয়ে অনুত্তীর্ণ", true);
+  } else {
+    drawBadge(
+      badgesLeft + badgeW + badgeGap,
+      "মেধাক্রম",
+      info.rank ? info.rank : "—",
+      info.rank ? `${info.totalPassed} জনের মধ্যে` : "প্রযোজ্য নয়",
+      false
+    );
+  }
+// dashed separator
+  ctx.save();
+  ctx.setLineDash([10, 8]);
+  ctx.strokeStyle = "rgba(11,94,60,0.35)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(P, 612);
+  ctx.lineTo(W - P, 612);
+  ctx.stroke();
+  ctx.restore();
+
+  // table
+  const tableW = W - 2 * P;
+  const fr = [0.31, 0.17, 0.2, 0.16, 0.16];
+  const colX = [];
+  let acc = P;
+  fr.forEach((f) => { colX.push({ x: acc, w: tableW * f }); acc += tableW * f; });
+  const headers = ["বিষয়", "মোট নম্বর", "প্রাপ্ত নম্বর", "গ্রেড", "পয়েন্ট"];
+  headers.forEach((h, i) => {
+    text(h, colX[i].x + colX[i].w / 2, tableTop - 18, { size: 30, weight: 700, color: C.greenDark, align: "center", maxW: colX[i].w - 12 });
+  });
+  ctx.fillStyle = C.green;
+  ctx.fillRect(P, tableTop - 6, tableW, 4);
+
+  r.rows.forEach((row, i) => {
+    const y = tableTop + i * rowH;
+    const base = y + 49;
+    const mid = (k) => colX[k].x + colX[k].w / 2;
+    text(String(row.name), mid(0), base, { size: 32, align: "center", maxW: colX[0].w - 14 });
+    text(row.total !== null ? String(row.total) : "—", mid(1), base, { size: 32, align: "center" });
+    text(row.obtained !== null ? String(row.obtained) : "—", mid(2), base, { size: 32, align: "center" });
+
+    const pal = GRADE_PALETTE[row.grade] || GRADE_PALETTE["A"];
+    roundRectPath(ctx, mid(3) - 44, y + 12, 88, 50, 25);
+    ctx.fillStyle = pal[0];
+    ctx.fill();
+    text(String(row.grade), mid(3), base - 1, { size: 30, weight: 700, color: pal[1], align: "center" });
+
+    text(row.point.toFixed(2), mid(4), base, { size: 32, align: "center" });
+
+    if (i < n - 1) {
+      ctx.fillStyle = C.line;
+      ctx.fillRect(P, y + rowH - 1, tableW, 2);
+    }
+  });
+
+  // summary boxes
+  const boxes = [
+    { label: "ফলাফল", value: r.pass ? "উত্তীর্ণ" : "অনুত্তীর্ণ", color: r.pass ? C.greenDark : C.maroon },
+    { label: "সর্বমোট GPA", value: r.gpa, color: r.pass ? C.greenDark : C.maroon }
+  ];
+  if (!r.pass) boxes.push({ label: "ফেল বিষয়", value: String(r.failCount), color: C.maroon });
+  const gap = 20;
+  const bw = (tableW - gap * (boxes.length - 1)) / boxes.length;
+  boxes.forEach((b, i) => {
+    const x = P + i * (bw + gap);
+    roundRectPath(ctx, x, summaryTop, bw, boxH, 10);
+    ctx.fillStyle = C.box;
+    ctx.fill();
+    ctx.strokeStyle = C.line;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    text(b.label, x + bw / 2, summaryTop + 42, { size: 27, color: C.soft, align: "center", maxW: bw - 20 });
+    text(b.value, x + bw / 2, summaryTop + 94, { size: 44, weight: 700, color: b.color, align: "center", maxW: bw - 20 });
+  });
+
+  // footer
+  const site = location.host ? location.host + location.pathname.replace(/index\.html$/, "") : "";
+  if (site) text(site, cx, H - 66, { size: 26, color: C.soft, align: "center", maxW: W - 2 * P });
+
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+}
+
+async function saveResultImage() {
+  if (!lastRenderedStudent || !lastRenderedInfo) return;
+  const btn = el("saveImgBtn");
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "ছবি তৈরি হচ্ছে...";
+  try {
+    const blob = await buildResultImage(lastRenderedStudent, lastRenderedExamMeta, lastRenderedExam, lastRenderedInfo);
+    if (!blob) throw new Error("toBlob returned null");
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const examId = (lastRenderedExamMeta && lastRenderedExamMeta.id) || "result";
+    a.href = url;
+    a.download = `result-${examId}-roll-${lastRenderedStudent.roll}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    showToast("ছবি সেভ হয়েছে ✅");
+  } catch (err) {
+    console.error(err);
+    showToast("ছবি তৈরি করা যায়নি — প্রিন্ট বাটন ব্যবহার করুন।");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// ===== PWA: Service worker + install button =====
+let deferredInstallPrompt = null;
+
+function initPwa() {
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch((err) => console.warn("SW register failed", err));
+    });
+  }
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    el("installBtn").hidden = false;
+  });
+
+  el("installBtn").addEventListener("click", async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    try { await deferredInstallPrompt.userChoice; } catch (e) { /* ignore */ }
+    deferredInstallPrompt = null;
+    el("installBtn").hidden = true;
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    el("installBtn").hidden = true;
+  });
+}
+
+// ===== Events =====
+el("searchBtn").addEventListener("click", search);
+el("rollInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") search();
+});
+el("printBtn").addEventListener("click", () => window.print());
+el("shareBtn").addEventListener("click", shareResult);
+el("saveImgBtn").addEventListener("click", saveResultImage);
+el("meritToggleBtn").addEventListener("click", () => togglePanel("merit"));
+el("statsToggleBtn").addEventListener("click", () => togglePanel("stats"));
+el("meritCloseBtn").addEventListener("click", () => closePanel("merit"));
+el("statsCloseBtn").addEventListener("click", () => closePanel("stats"));
+el("lockedCloseBtn").addEventListener("click", closeLockedPopup);
+el("lockedModal").addEventListener("click", (e) => { if (e.target === el("lockedModal")) closeLockedPopup(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLockedPopup(); });
+el("meritFilter").addEventListener("input", (e) => paintMeritRows(e.target.value));
+
+initTheme();
+initPwa();
+loadData();
+
