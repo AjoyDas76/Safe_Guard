@@ -1,17 +1,7 @@
-# Phase 8 — SIM800L GSM SOS Backup
+# Phase 8 — SIM800L GSM SOS (Moved to Vest)
 
-Standalone test sketches: `sim800l_call_test.ino` (places a call) and `sim800l_msg_test.ino` (sends an SMS). Both verified working — SMS and call both received successfully.
+**SIM800L has been moved from the helmet to the vest.** Reasoning: an emergency SMS/call is far more useful when it carries the worker's GPS location and fall/SOS status — both of which live on the vest's sensors, not the helmet's. See `vest/firmware/Phase-09_System_Integration/transmitter_final.ino` for the current implementation (SMS triggered on fall detection, SOS button press, or high temperature, including the worker's last known GPS coordinates).
 
-**Wiring:**
-| Arduino | SIM800L |
-|---|---|
-| +5V | VCC |
-| GND | GND |
-| D6 | TXD |
-| D7 | RXD |
+The two test sketches here (`sim800l_call_test.ino`, `sim800l_msg_test.ino`) are kept as a historical record of the original bench testing done on the helmet during Phase 1 — the wiring and AT-command approach they demonstrate is the same one now used on the vest, just on different hardware. They are **not part of the helmet's current firmware**.
 
-Powered directly from the Nano's 5V rail (no separate 3.7–4.2V supply) — see the power note in `Phase-09_DualNano_Integration/README.md` for the brownout caveat under full-system load.
-
-The combined SOS-trigger logic (cooldown-limited, fired automatically on an obstacle or gas alert) is implemented in `Phase-09_DualNano_Integration/Nano2_CommNode.ino`.
-
-> **Before pushing this publicly:** both test files have a real phone number hardcoded in `ATD+...` / `AT+CMGS=...`. Consider moving it into a separate, `.gitignore`d config file before this goes into a public repo — same practice as keeping WiFi/Firebase credentials out of committed code.
+> Same caution as before: both files have a real phone number hardcoded — keep that in mind if this folder is kept in a public repo.
