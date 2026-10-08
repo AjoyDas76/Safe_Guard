@@ -17,6 +17,12 @@
  * NOTE: The SOS button referenced here is the physical emergency button on
  * the vest itself (SOS_BUTTON_PIN), pressed by the worker.
  *
+ * SIM800L SOS SMS: on a fall, SOS button press, or high-temperature alert,
+ * this sends an SMS (via the SIM800L now mounted on the vest, not the
+ * helmet) to EMERGENCY_NUMBER with the worker's last known GPS location and
+ * alert reason, cooldown-limited to avoid repeat SMS for the same ongoing
+ * alert. Powered from the vest's existing 18650/solar power system.
+ *
  * LIVE-DATA UPDATE:
  * Telemetry now goes out once per second (TX_INTERVAL_MS) instead of every
  * two seconds, and each packet carries a sequence number as its 10th CSV
@@ -36,12 +42,17 @@
 #include <SPI.h>
 #include <LoRa.h>
 #include <math.h>
+#include <SoftwareSerial.h>
 
 // ===================== Pin Definitions =====================
 #define SOS_BUTTON_PIN 15
 #define BUZZER_PIN     12
 #define LED_PIN        13
 #define BATT_ADC_PIN   34
+
+// SIM800L (moved here from the helmet — see note below)
+#define SIM800_RX_PIN 25 // ESP32 RX <- SIM800L TXD
+#define SIM800_TX_PIN 27 // ESP32 TX -> SIM800L RXD (through a voltage divider, same as on the helmet)
 
 // LoRa Pins
 #define SCK_PIN   18
@@ -61,6 +72,12 @@ Adafruit_BME280 bme;
 MPU6050 mpu;
 TinyGPSPlus gps;
 HardwareSerial gpsSerial(2); // UART2 for GPS (RX:16, TX:17)
+SoftwareSerial sim800l(SIM800_RX_PIN, SIM800_TX_PIN);
+
+// ===================== SIM800L SOS SMS =====================
+#define EMERGENCY_NUMBER "+8801XXXXXXXXX" // set to the tested number, with country code
+const unsigned long SMS_COOLDOWN_MS = 60000; // 60s — avoid repeat SMS while the same alert is still active
+unsigned long lastSmsTime = 0;
 
 // ===================== Environment / GPS / System Globals =====================
 float temp, hum, pres;
@@ -478,6 +495,43 @@ void calibrateMPU()
 
 /*
  * ==========================================================
+ * SIM800L SOS SMS
+ * ==========================================================
+ */
+void sim800Command(const char* cmd) {
+  sim800l.println(cmd);
+  delay(300);
+}
+
+void sendSOSMessage(const char* reason) {
+  Serial.println("[SIM800L] Sending SOS SMS...");
+
+  sim800Command("AT");
+  sim800Command("AT+CMGF=1"); // text mode
+
+  sim800l.print("AT+CMGS=\"");
+  sim800l.print(EMERGENCY_NUMBER);
+  sim800l.println("\"");
+  delay(300);
+
+  sim800l.print("SafeGuard ALERT: ");
+  sim800l.print(reason);
+  sim800l.print(" | Status: ");
+  sim800l.print(getFullWorkerStatus());
+  sim800l.print(" | Last location: https://maps.google.com/?q=");
+  sim800l.print(latitude, 6);
+  sim800l.print(",");
+  sim800l.print(longitude, 6);
+  sim800l.println();
+
+  sim800l.write(26); // Ctrl+Z, ends the message
+  delay(3000);
+
+  Serial.println("[SIM800L] SOS SMS sent.");
+}
+
+/*
+ * ==========================================================
  * Setup
  * ==========================================================
  */
@@ -487,6 +541,7 @@ void setup() {
   Serial.println("\n[System] Initializing Smart Vest Transmitter...");
 
   gpsSerial.begin(9600, SERIAL_8N1, 16, 17);
+  sim800l.begin(9600);
   Wire.begin(); // I2C for OLED + BME280 + MPU6050 (default SDA21/SCL22)
 
   pinMode(SOS_BUTTON_PIN, INPUT_PULLUP);
@@ -574,9 +629,16 @@ void loop() {
   batteryVoltage = (analogRead(BATT_ADC_PIN) / 4095.0) * 2 * 3.3 * 1.1;
 
   // 5. Trigger Alarm
-  if (mpuData.fall || sosActive || temp > 50.0) {
+  bool alertActive = (mpuData.fall || sosActive || temp > 50.0);
+  if (alertActive) {
     digitalWrite(BUZZER_PIN, HIGH);
     digitalWrite(LED_PIN, HIGH);
+
+    if (millis() - lastSmsTime > SMS_COOLDOWN_MS) {
+      const char* reason = mpuData.fall ? "FALL DETECTED" : sosActive ? "SOS BUTTON PRESSED" : "HIGH TEMPERATURE";
+      sendSOSMessage(reason);
+      lastSmsTime = millis();
+    }
   } else {
     digitalWrite(BUZZER_PIN, LOW);
     digitalWrite(LED_PIN, LOW);
