@@ -12,22 +12,22 @@ graph LR
     N1 -- local alerts --> A[Buzzer x2, Vibration Motor]
     N1 -- Serial D11 to D0 --> N2[Nano #2<br/>Communication Node]
     N2 -- WiFi --> ESP[ESP-01]
-    N2 -- GSM --> SIM[SIM800L]
     ESP --> FB[(Firebase /helmet1)]
-    SIM --> SOS[SMS / Call SOS]
 
     LDR[LDR] -.independent circuit.-> REL[Relay]
     REL -.-> LED[3x White LED Headlamp]
 ```
 
 > The LDR + LED headlamp is a **separate, independent circuit** — it is not wired to either Nano. See §3.
+>
+> **SIM800L GSM SOS is not on the helmet** — it has been moved to the vest, since an emergency SMS is far more useful carrying the worker's GPS location and fall/SOS status, both of which live on the vest's sensors. See `vest/VEST-CONNECTIONS.md` §1.5 for the current implementation.
 
 ---
 
 ## 1. Nano #1 — Sensor Node
 
 ### 1.1 Component list
-Ultrasonic ×3, MQ-2 gas sensor, GY-30100 (MAX30100), Buzzer ×2, miniature vibration motor (via NPN transistor + AMS1117 regulator).
+Ultrasonic ×3, MQ-2 gas sensor, GY-30100 (MAX30100), Buzzer ×2 (1 active, 1 passive), miniature vibration motor (via NPN transistor + AMS1117 regulator).
 
 ### 1.2 Pin connection table
 
@@ -46,8 +46,8 @@ Ultrasonic ×3, MQ-2 gas sensor, GY-30100 (MAX30100), Buzzer ×2, miniature vibr
 | | SCL | A5 |
 | | VCC | 5V (or 3.3V per module) |
 | | GND | GND |
-| **Buzzer 1** (obstacle alert) | Signal | D8 |
-| **Buzzer 2** (gas/health alert) | Signal | D9 |
+| **Buzzer 1** (active — obstacle alert, beep-beep pattern) | Signal | D8 |
+| **Buzzer 2** (passive — gas/health alert, ambulance-style siren tone via `tone()`) | Signal | D9 |
 | **Vibration motor** | Control (via transistor base) | D13 |
 | **Link to Nano #2** | RX / TX (SoftwareSerial) | D10 / D11 |
 
@@ -69,7 +69,7 @@ graph LR
 ## 2. Nano #2 — Communication Node
 
 ### 2.1 Component list
-ESP-01 (via HW-580 adapter board), SIM800L GSM module.
+ESP-01 (via HW-580 adapter board). *(SIM800L is no longer on the helmet — see note above.)*
 
 ### 2.2 Pin connection table
 
@@ -80,10 +80,8 @@ ESP-01 (via HW-580 adapter board), SIM800L GSM module.
 | | Adapter RX ← Nano TX | D3 |
 | | Adapter VCC | 5V |
 | | Adapter GND | GND |
-| **SIM800L** | TXD → Nano RX | D6 |
-| | RXD ← Nano TX | D7 |
-| | VCC | 5V (direct — see power note below) |
-| | GND | GND |
+
+D6/D7 (previously used for SIM800L) are now free.
 
 > **ESP-01 note:** the HW-580 adapter has its own onboard 3.3V regulator and TX/RX level shifting, so it takes 5V directly from Nano #2 — no separate AMS1117 or voltage dividers needed for it.
 
@@ -113,11 +111,11 @@ All three white LEDs are wired in parallel (each with its own current-limiting r
 
 | Rail | Powers | Source |
 |---|---|---|
-| 5V | Both Nanos, Ultrasonic ×3, MQ-2, MAX30100, Buzzer ×2, ESP-01 adapter, SIM800L | Main 5V supply |
+| 5V | Both Nanos, Ultrasonic ×3, MQ-2, MAX30100, Buzzer ×2, ESP-01 adapter | Main 5V supply |
 | AMS1117-regulated | Vibration motor | Separate regulator off the main supply |
 | Independent | LDR + relay + LED headlamp array | Its own separate power source, unrelated to the Nanos |
 
-> **SIM800L power caveat:** currently powered directly from the Nano's 5V rail — tested working for SMS and calls individually. Under full-system load (all sensors + both radios running together), SIM800L's transmit current spikes (~2A peak) carry some brownout/reset risk. If instability appears once everything runs together, move SIM800L to its own dedicated 3.7–4.2V/~2A supply.
+Removing SIM800L from the helmet also removes its power/brownout risk from this system — that concern now applies to the vest instead (see `vest/VEST-CONNECTIONS.md` §1.5), where it's a better fit since SIM800L can run off the vest's existing 18650/solar power system.
 
 ---
 
@@ -125,16 +123,16 @@ All three white LEDs are wired in parallel (each with its own current-limiting r
 
 - **WiFi:** ESP-01 connects to the local router (2.4GHz only)
 - **Firebase Realtime Database:** `worker-safety-vest-92b97-default-rtdb.firebaseio.com`, writing to `/helmet1/live` (latest status) and `/helmet1/logs` (timestamped history) — same project as the vest, kept in a separate node
-- **GSM:** SIM800L sends SMS / places a call to a configured emergency number on a critical (obstacle or gas) alert, cooldown-limited to avoid repeat alerts for the same ongoing condition
 
 ---
 
 ## ⚠️ Before pushing this repo publicly
 
-`Phase-08_SIM800L_GSM_SOS/sim800l_call_test.ino` and `sim800l_msg_test.ino` have a real phone number hardcoded. `Phase-09_DualNano_Integration/Nano2_CommNode.ino`'s `EMERGENCY_NUMBER` will need the same treatment once filled in. Move these into a separate, `.gitignore`d config file before the repo goes public — same practice already recommended for the vest's WiFi credentials.
+`Phase-08_SIM800L_GSM_SOS/sim800l_call_test.ino` and `sim800l_msg_test.ino` (kept as historical bench-test records, no longer part of the active helmet firmware — see that folder's README) still have a real phone number hardcoded. The active `EMERGENCY_NUMBER` now lives in `vest/firmware/Phase-09_System_Integration/transmitter_final.ino` and needs the same treatment. Move all of these into a separate, `.gitignore`d config file before the repo goes public — same practice already recommended for the vest's WiFi credentials.
 
 ---
 
 ## Notes
 - Pin numbers above are from the **finalized Phase 9 integration firmware** — the source of truth for the physical build, same convention as `VEST-CONNECTIONS.md`.
-- This firmware has been written and is ready to upload, but has **not yet been physically tested as a complete combined system** (all sensors + both Nanos + ESP-01 + SIM800L running together) — that's the current next step.
+- This firmware has been written and is ready to upload, but has **not yet been physically tested as a complete combined system** (all sensors + both Nanos + ESP-01 running together) — that's the current next step.
+- SIM800L GSM SOS has moved to the vest — see `vest/VEST-CONNECTIONS.md` §1.5.
