@@ -24,7 +24,7 @@
 #define ECHO2 5
 #define TRIG3 6
 #define ECHO3 7
-#define OBSTACLE_THRESHOLD_CM 100 // tune after physical testing
+#define OBSTACLE_THRESHOLD_CM 50 // tune after physical testing
 
 long readDistance(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
