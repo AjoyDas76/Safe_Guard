@@ -26,7 +26,7 @@
 #define ECHO2 5
 #define TRIG3 6
 #define ECHO3 7
-#define OBSTACLE_THRESHOLD_CM 100
+#define OBSTACLE_THRESHOLD_CM 50
 
 #define MQ_PIN A0
 int mqBaseline = 0;
@@ -76,6 +76,46 @@ void setup() {
 
 unsigned long lastSend = 0;
 
+// Buzzer 1 (active, obstacle): beep-beep pattern.
+unsigned long buzzer1LastToggle = 0;
+bool buzzer1State = false;
+#define BUZZER1_BEEP_INTERVAL 150 // ms on, ms off
+
+// Buzzer 2 (passive, gas/health): ambulance-style siren — alternates between
+// two pitches. Adjust the two frequencies / interval to taste.
+unsigned long buzzer2LastToggle = 0;
+bool buzzer2High = false;
+#define BUZZER2_TONE_LOW 600
+#define BUZZER2_TONE_HIGH 1200
+#define BUZZER2_SIREN_INTERVAL 400 // ms between pitch switches
+
+void updateBuzzers(bool obstacleAlert, bool gasAlert, bool healthAlert) {
+  // Buzzer 1: beep-beep
+  if (obstacleAlert) {
+    if (millis() - buzzer1LastToggle > BUZZER1_BEEP_INTERVAL) {
+      buzzer1LastToggle = millis();
+      buzzer1State = !buzzer1State;
+      digitalWrite(BUZZER1, buzzer1State ? HIGH : LOW);
+    }
+  } else {
+    digitalWrite(BUZZER1, LOW);
+    buzzer1State = false;
+  }
+
+  // Buzzer 2: ambulance-style siren
+  bool buzzer2ShouldAlert = gasAlert || healthAlert;
+  if (buzzer2ShouldAlert) {
+    if (millis() - buzzer2LastToggle > BUZZER2_SIREN_INTERVAL) {
+      buzzer2LastToggle = millis();
+      buzzer2High = !buzzer2High;
+      tone(BUZZER2, buzzer2High ? BUZZER2_TONE_HIGH : BUZZER2_TONE_LOW);
+    }
+  } else {
+    noTone(BUZZER2);
+    buzzer2High = false;
+  }
+}
+
 void loop() {
   pox.update();
   if (pox.getSpO2() > 0) {
@@ -95,8 +135,7 @@ void loop() {
 
   bool healthAlert = vitalsReady && (lastHR < 50 || lastHR > 120 || lastSpO2 < 90);
 
-  digitalWrite(BUZZER1, obstacleAlert ? HIGH : LOW);
-  digitalWrite(BUZZER2, (gasAlert || healthAlert) ? HIGH : LOW);
+  updateBuzzers(obstacleAlert, gasAlert, healthAlert);
   digitalWrite(VIBRATION_PIN, (obstacleAlert || gasAlert || healthAlert) ? HIGH : LOW);
 
   if (millis() - lastSend > 1000) {
