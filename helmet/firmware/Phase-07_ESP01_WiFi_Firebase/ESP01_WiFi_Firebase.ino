@@ -31,10 +31,10 @@
 #include <WiFiClientSecure.h>
 #include <ESP8266HTTPClient.h>
 
-const char* ssid = "YOUR_WIFI_NAME";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "Koushik";
+const char* password = "montus10";
 const char* firebaseHost = "worker-safety-vest-92b97-default-rtdb.firebaseio.com";
-const char* databaseSecret = "YOUR_DATABASE_SECRET";
+const char* databaseSecret = "V6ndR7T66VFKEhWVwt5ROC6muedzRLbGEvpdRlmL";
 
 WiFiClientSecure client;
 String incoming = "";
