@@ -1,50 +1,72 @@
 /*
-  Nano2_CommNode.ino
-  Phase 9 — Dual-Nano System Integration (Communication Node)
+  Nano2_CommNode_final.ino
+  Communication node: receives a line from Nano #1 and forwards it to the
+  ESP-01 (which uploads it to Firebase /helmet1).
 
-  Realizes Phase 7 (ESP-01 WiFi -> Firebase forwarding).
+  Wiring:
+    Nano1 D11 (TX) -> Nano2 D4 (RX)
+    Nano1 GND      -> Nano2 GND
+    Nano2 D3 (TX)  -> ESP-01 adapter RX
+    Nano2 D2 (RX)  <- ESP-01 adapter TX
+    Adapter VCC -> 5V, adapter GND -> GND
 
-  Receives a summary line from Nano #1 over hardware serial (D0) and
-  forwards it to the ESP-01 (which uploads to Firebase on its own —
-  see Phase-07_ESP01_WiFi_Firebase/).
-
-  SIM800L GSM SOS has been MOVED to the vest (not the helmet) — see
-  vest/firmware/Phase-09_System_Integration/transmitter_final.ino.
-  Reasoning: an emergency SMS is far more useful carrying the
-  worker's GPS location and fall/SOS status, both of which live on
-  the vest, not the helmet. The helmet no longer sends any SMS/calls;
-  it only reports its own sensor data to Firebase over WiFi.
-
-  Wiring — see Phase-09 README.md for the full table.
-
-  IMPORTANT: disconnect the wire on D0 (coming from Nano #1) before
-  uploading this sketch, or the USB upload will conflict with it.
+  D0/D1 stay free, so USB upload and Serial Monitor always work.
+  Set DEBUG to 0 to silence the Serial Monitor output.
 */
 
 #include <SoftwareSerial.h>
 
-SoftwareSerial espSerial(2, 3); // RX, TX -> ESP-01 adapter
+#define DEBUG 1
+
+SoftwareSerial nano1Serial(4, 5); // RX = D4 (from Nano1 D11), TX unused
+SoftwareSerial espSerial(2, 3);   // RX, TX -> ESP-01 adapter
 
 String incoming = "";
+unsigned long lineCount = 0;
+unsigned long lastRxTime = 0;
+unsigned long lastWarn = 0;
 
-void processLine(String line) {
-  if (line.length() == 0) return;
-  espSerial.println(line); // forward to ESP-01, which uploads to Firebase
+void processLine(const String& line) {
+  if (!line.startsWith("OBST:")) return; // ignore garbage
+
+  lineCount++;
+  lastRxTime = millis();
+  digitalWrite(LED_BUILTIN, HIGH);
+  espSerial.println(line); // ESP-01 uploads it to Firebase
+  digitalWrite(LED_BUILTIN, LOW);
+
+#if DEBUG
+  Serial.print("#");
+  Serial.print(lineCount);
+  Serial.print(" -> ESP: ");
+  Serial.println(line);
+#endif
 }
 
 void setup() {
-  Serial.begin(9600);   // link from Nano #1 (D0)
+  Serial.begin(9600);
+  pinMode(LED_BUILTIN, OUTPUT);
   espSerial.begin(9600);
+  nano1Serial.begin(9600);
+  nano1Serial.listen(); // only one SoftwareSerial can listen at a time
 }
 
 void loop() {
-  while (Serial.available()) {
-    char c = Serial.read();
+  while (nano1Serial.available()) {
+    char c = nano1Serial.read();
     if (c == '\n') {
       processLine(incoming);
       incoming = "";
     } else if (c != '\r') {
       incoming += c;
+      if (incoming.length() > 140) incoming = ""; // lines are ~80 chars now
     }
   }
+
+#if DEBUG
+  if (millis() - lastRxTime > 3000 && millis() - lastWarn > 3000) {
+    lastWarn = millis();
+    Serial.println("... no data from Nano1 in last 3s (check D11->D4 and GND)");
+  }
+#endif
 }
