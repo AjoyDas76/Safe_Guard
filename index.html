@@ -120,6 +120,7 @@
         <span class="cmd-title">SAFEGUARD COMMAND</span>
         <span class="status-badge" id="connPill" role="status" aria-live="polite"><i class="fa-solid fa-circle" style="font-size: 6px;" aria-hidden="true"></i> VEST WAITING</span>
         <span class="status-badge" id="helmetConnPill" role="status" aria-live="polite"><i class="fa-solid fa-helmet-safety" style="font-size: 9px;" aria-hidden="true"></i> HELMET WAITING</span>
+        <span class="status-badge" id="signalPill" role="status" aria-live="polite" title="LoRa signal strength (vest → receiver)"><i class="fa-solid fa-signal" style="font-size: 9px;" aria-hidden="true"></i> SIGNAL --</span>
       </div>
       <div class="header-right">
         <button class="btn-action" id="audioBtn" onclick="toggleAudio()" aria-pressed="false" aria-label="Toggle alert sound"><i class="fa-solid fa-volume-xmark" id="audioIcon" aria-hidden="true"></i> Audio: OFF</button>
@@ -158,13 +159,10 @@
           <div><span>ID :</span> SV-001</div>
           <div><span>Status :</span> <b style="color: var(--amber);" id="workerStatus">OFFLINE</b></div>
           <div><span>Name :</span> Worker 01</div>
-          <div><span>Shift :</span> 08:00 - 16:00</div>
-          <div><span>Vest ID :</span> VEST-001</div>
           <div><span>Sync :</span> <span id="lastSyncTime">--:--:--</span></div>
-          <div><span>Signal :</span> <span id="rssiVal">-- dBm</span></div>
-          <div><span>Helmet ID :</span> HELMET-001</div>
+          <div><span>Vest ID :</span> VEST-001</div>
           <div><span>Helmet :</span> <b style="color: var(--amber);" id="hInfoStatus">OFFLINE</b></div>
-          <div><span>Helmet Sensors :</span> 5</div>
+          <div><span>Helmet ID :</span> HELMET-001</div>
           <div><span>Helmet Sync :</span> <span id="hLastSync">--:--:--</span></div>
         </div>
       </div>
