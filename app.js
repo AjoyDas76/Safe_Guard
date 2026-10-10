@@ -643,7 +643,7 @@ let audioEnabled = false;
 
       const connPill = document.getElementById('connPill');
       connPill.classList.remove('connected');
-      connPill.innerHTML = '<i class="fa-solid fa-circle" style="font-size: 6px;"></i> OFFLINE';
+      connPill.innerHTML = '<i class="fa-solid fa-circle" style="font-size: 6px;"></i> VEST OFFLINE';
 
       const sysIcon = document.getElementById('sysIcon');
       sysIcon.classList.remove('active');
@@ -700,7 +700,7 @@ let audioEnabled = false;
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${new Date().toLocaleTimeString()}</td>
-        <td>Connection Lost</td>
+        <td>Vest Connection Lost</td>
         <td><span class="badge badge-alert">OFFLINE</span></td>
         <td>No data received</td>
       `;
@@ -754,7 +754,7 @@ let audioEnabled = false;
         isConnected = true;
         const connPill = document.getElementById('connPill');
         connPill.classList.add('connected');
-        connPill.innerHTML = '<i class="fa-solid fa-circle" style="font-size: 6px;"></i> STREAMING';
+        connPill.innerHTML = '<i class="fa-solid fa-circle" style="font-size: 6px;"></i> VEST STREAMING';
 
         const sysIcon = document.getElementById('sysIcon');
         sysIcon.classList.add('active');
