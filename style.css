@@ -2651,3 +2651,7 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
 @media (max-width: 768px) {
   .map-card-large .map-wrapper { height: 300px; }
 }
+
+/* Signal pill in the header: same shape as the Helmet pill; red when the link is poor */
+.status-badge.weak { color: var(--red); background: rgba(255, 51, 102, 0.15); border-color: rgba(255, 51, 102, 0.4); }
+.status-badge.weak i { color: var(--red); }
