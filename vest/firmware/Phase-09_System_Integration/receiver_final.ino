@@ -144,6 +144,8 @@ volatile unsigned long lastFirebaseOkMs = 0;
 volatile unsigned long lastPacketMs = 0;   // written by loop() on core 1
 volatile uint32_t droppedLogEntries = 0;
 volatile uint32_t missedPackets = 0;       // written by loop() on core 1
+volatile int lastHttpCode = 0;             // last HTTP status from Firebase (core 0)
+volatile uint32_t rejectedPackets = 0;     // packets discarded for invalid sensor values
 
 /*
  * ==========================================================
@@ -198,6 +200,7 @@ int firebaseRequest(const char *path, const char *method, const String &payload)
 
   int code = http.sendRequest(method, (uint8_t *)payload.c_str(), payload.length());
   http.end();
+  lastHttpCode = code;
 
   if (code == 200) lastFirebaseOkMs = millis();
   return code;
@@ -259,6 +262,12 @@ void flushLogBatch() {
   if (firebaseSend(LOG_PATH, "PATCH", body)) {
     Serial.printf("[Firebase] History batch written (%d entries, %u still buffered)\n",
                   n, (unsigned)uxQueueMessagesWaiting(logQueue));
+  } else if (lastHttpCode == 400) {
+    // Firebase says the JSON itself is invalid (e.g. a "nan" value slipped
+    // through). Retrying can never succeed and would block every later log,
+    // so this batch is discarded.
+    droppedLogEntries += n;
+    Serial.printf("[Firebase] Batch rejected as invalid JSON (HTTP 400) - %d entries discarded\n", n);
   } else {
     for (int i = n - 1; i >= 0; i--) {
       if (xQueueSendToFront(logQueue, &batch[i], 0) != pdTRUE) droppedLogEntries++;
@@ -469,6 +478,19 @@ void loop() {
   }
   if (seq) lastSeq = seq;
 
+  // Reject packets with non-numeric or impossible values (a failed BME280
+  // sends "nan"; a corrupted packet can parse to garbage). "nan" is not valid
+  // JSON, so Firebase would refuse it - and the live view would show nonsense.
+  if (!isfinite(temp) || !isfinite(hum) || !isfinite(pres) || !isfinite(batt) ||
+      !isfinite(lat)  || !isfinite(lng) ||
+      temp < -40 || temp > 125 || hum < 0 || hum > 100 || pres < 300 || pres > 1100 ||
+      lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    rejectedPackets++;
+    Serial.printf("[Warning] Packet discarded - invalid sensor value (temp=%.1f hum=%.1f pres=%.1f). Total discarded: %u\n",
+                  temp, hum, pres, (unsigned)rejectedPackets);
+    return;
+  }
+
   if (!isKnownStatus(state)) {
     Serial.printf("[Warning] Unrecognized worker status received: \"%s\"\n", state.c_str());
   }
@@ -494,7 +516,8 @@ void loop() {
   json += "\"status\":{\"motion_state\":\"" + state + "\"},";
   json += "\"alerts\":{\"fall_detected\":" + String(fall ? "true" : "false") + ",\"sos_active\":" + String(sos ? "true" : "false") + "},";
   json += "\"gps\":{\"latitude\":" + String(lat, 6) + ",\"longitude\":" + String(lng, 6) + "},";
-  json += "\"battery\":{\"voltage\":" + String(batt, 2) + "}";
+  json += "\"battery\":{\"voltage\":" + String(batt, 2) + "},";
+  json += "\"signal\":{\"rssi\":" + String(LoRa.packetRssi()) + "}";
   json += "}";
 
   LiveSnapshot snap;
