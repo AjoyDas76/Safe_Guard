@@ -100,7 +100,7 @@ let audioEnabled = false;
       };
     }
 
-    function exportWorkerData() {
+    function exportLiveBuffer() {
       if (dataHistory.length === 0 && helmetHistory.length === 0) {
         alert('এক্সপোর্ট করার জন্য এখনো কোনো ডাটা রেকর্ড হয়নি।\nপেজটি একটু সময় ধরে খোলা রাখুন যাতে সাম্প্রতিক রিডিং জমা হতে পারে, তারপর আবার চেষ্টা করুন।');
         return;
@@ -149,6 +149,114 @@ let audioEnabled = false;
       } catch (err) {
         console.error('[Export] Excel generation FAILED:', err.message);
         alert('এক্সপোর্ট তৈরি করতে ব্যর্থ হয়েছে:\n' + err.message);
+      } finally {
+        exportBtn.innerHTML = originalHtml;
+        exportBtn.disabled = false;
+      }
+    }
+
+    // ===================== Export (reads the saved Firebase logs) =====================
+    // Export now pulls the real history from /worker1/logs (vest) and
+    // /helmet1/logs (helmet) for the chosen period, so it is no longer limited
+    // to whatever happened to arrive while the page was open.
+    const EXPORT_MAX_ROWS = 50000; // per sheet, newest entries win
+
+    const fmtExportTime = (ts) => new Date(ts).toLocaleString();
+
+    function fetchExportLogs(path, field, since) {
+      return db.ref(path).orderByChild(field).startAt(since).limitToLast(EXPORT_MAX_ROWS).once('value').then((snap) => {
+        const rows = [];
+        snap.forEach((child) => {
+          const v = child.val();
+          if (v && typeof v[field] === 'number') rows.push(v);
+        });
+        rows.sort((x, y) => x[field] - y[field]);
+        return { rows, capped: snap.numChildren() >= EXPORT_MAX_ROWS };
+      });
+    }
+
+    async function exportWorkerData() {
+      const choice = prompt(
+        'কোন সময়ের ডাটা এক্সপোর্ট করতে চান?\n1 = গত ২৪ ঘণ্টা\n2 = গত ৭ দিন\n3 = গত ৩০ দিন',
+        '1'
+      );
+      if (choice === null) return;
+      const days = { '1': 1, '2': 7, '3': 30 }[String(choice).trim()] || 1;
+      const label = { 1: 'daily', 7: 'weekly', 30: 'monthly' }[days];
+      const since = Date.now() - days * 24 * 60 * 60 * 1000;
+
+      const exportBtn = document.getElementById('exportBtn');
+      const originalHtml = exportBtn.innerHTML;
+      exportBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting...';
+      exportBtn.disabled = true;
+
+      try {
+        const [vest, helmet] = await Promise.all([
+          fetchExportLogs('/worker1/logs', 'ts', since),
+          fetchExportLogs('/helmet1/logs', 'timestamp', since)
+        ]);
+
+        if (vest.rows.length === 0 && helmet.rows.length === 0) {
+          // No saved logs yet - fall back to the readings kept in memory.
+          exportBtn.innerHTML = originalHtml;
+          exportBtn.disabled = false;
+          if (dataHistory.length || helmetHistory.length) {
+            alert('এই সময়সীমায় Firebase-এ কোনো লগ নেই। পেজ খোলা থাকার সময় জমা হওয়া সাম্প্রতিক রিডিং এক্সপোর্ট হচ্ছে।');
+            exportLiveBuffer();
+          } else {
+            alert('এই সময়সীমায় এক্সপোর্ট করার মতো কোনো লগ পাওয়া যায়নি।');
+          }
+          return;
+        }
+
+        const workbook = XLSX.utils.book_new();
+        const exportedAt = new Date().toLocaleString();
+        const rangeText = new Date(since).toLocaleString() + '  →  ' + exportedAt;
+
+        const addSheet = (name, meta, header, rows, capped) => {
+          if (rows.length === 0) return;
+          const aoa = [
+            ...meta,
+            ['Period', rangeText],
+            ['Exported At', exportedAt],
+            ['Records Exported', String(rows.length) + (capped ? ' (limit reached - newest only)' : '')],
+            [],
+            header,
+            ...rows
+          ];
+          const ws = XLSX.utils.aoa_to_sheet(aoa);
+          ws['!cols'] = header.map((h, i) => ({ wch: i === 0 ? 22 : Math.max(14, h.length + 2) }));
+          XLSX.utils.book_append_sheet(workbook, ws, name);
+        };
+
+        // Vest sheet (battery is intentionally left out - project rule: no battery info)
+        addSheet('Vest Logs',
+          [['Worker ID', 'SV-001'], ['Vest ID', 'VEST-001']],
+          ['Time', 'Temperature (°C)', 'Humidity (%)', 'Pressure (hPa)', 'Motion State', 'Fall', 'SOS', 'Latitude', 'Longitude'],
+          vest.rows.map((v) => [
+            fmtExportTime(v.ts), v.temperature, v.humidity, v.pressure, v.motion_state || '',
+            v.fall ? 'YES' : 'NO', v.sos ? 'YES' : 'NO', v.latitude, v.longitude
+          ]),
+          vest.capped);
+
+        // Helmet sheet
+        addSheet('Helmet Logs',
+          [['Worker ID', 'SV-001'], ['Helmet ID', 'HELMET-001']],
+          ['Time', 'Heart Rate (bpm)', 'SpO2 (%)', 'Gas Level', 'Gas Baseline', 'Gas Alert',
+           'Dist Left (cm)', 'Dist Front (cm)', 'Dist Right (cm)', 'Obstacle', 'Obst Left', 'Obst Front', 'Obst Right'],
+          helmet.rows.map((v) => [
+            fmtExportTime(v.timestamp), v.heartRate, v.spo2, v.gasLevel, v.gasBaseline, v.gas ? 'YES' : 'NO',
+            v.distLeft, v.distFront, v.distRight, v.obstacle ? 'YES' : 'NO',
+            v.obstLeft ? 'YES' : 'NO', v.obstFront ? 'YES' : 'NO', v.obstRight ? 'YES' : 'NO'
+          ]),
+          helmet.capped);
+
+        const dateStamp = new Date().toISOString().replace(/[:.]/g, '-');
+        XLSX.writeFile(workbook, `safeguard_${label}_${dateStamp}.xlsx`);
+        window.dispatchEvent(new CustomEvent('safeguard:exported'));
+      } catch (err) {
+        console.error('[Export] failed:', err);
+        alert('এক্সপোর্ট তৈরি করতে ব্যর্থ হয়েছে:\n' + (err && err.message ? err.message : err));
       } finally {
         exportBtn.innerHTML = originalHtml;
         exportBtn.disabled = false;
@@ -701,6 +809,7 @@ let audioEnabled = false;
       document.getElementById('sosBadge').innerText = '--';
 
       document.getElementById('lastSyncTime').innerText = '--:--:--';
+      setRssi(null);
 
       // Clear Active Alerts and show an explicit "no live data" notice
       document.getElementById('activeAlertCount').innerText = '0';
@@ -719,6 +828,20 @@ let audioEnabled = false;
       `;
       eventTable.insertBefore(row, eventTable.firstChild);
       if (eventTable.children.length > 5) eventTable.removeChild(eventTable.lastChild);
+    }
+
+    // LoRa signal strength (dBm) reported by the receiver in /worker1/signal/rssi
+    function setRssi(v) {
+      const el = document.getElementById('rssiVal');
+      if (!el) return;
+      const n = Number(v);
+      if (v === undefined || v === null || !isFinite(n)) {
+        el.innerText = '-- dBm';
+        el.style.color = '';
+        return;
+      }
+      el.innerText = Math.round(n) + ' dBm';
+      el.style.color = n >= -90 ? 'var(--green)' : n >= -105 ? 'var(--amber)' : 'var(--red)';
     }
 
     // Gatekeeper for every Firebase read (both the realtime listener and
@@ -787,6 +910,7 @@ let audioEnabled = false;
 
       const timeStr = new Date().toLocaleTimeString();
       document.getElementById('lastSyncTime').innerText = timeStr;
+      setRssi(data.signal && data.signal.rssi);
 
       let isHazard = false;
       const activeAlertsList = [];
@@ -974,6 +1098,43 @@ let audioEnabled = false;
         goOffline();
       }
     }, 1000);
+
+
+    // ===================== Old-log cleanup =====================
+    // Keeps the Realtime Database small: logs older than LOG_RETENTION_DAYS are
+    // deleted in small batches. Runs shortly after login and then every 6 h while
+    // the dashboard stays open. startAt(1) skips any entry that has no timestamp.
+    const LOG_RETENTION_DAYS = 30;
+    const PURGE_BATCH = 500;
+    const PURGE_MAX_BATCHES = 20; // per run, so a huge backlog is cleared over several runs
+
+    async function purgeOldLogs(path, field) {
+      const cutoff = Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+      let removed = 0;
+      for (let i = 0; i < PURGE_MAX_BATCHES; i++) {
+        const snap = await db.ref(path).orderByChild(field).startAt(1).endAt(cutoff).limitToFirst(PURGE_BATCH).once('value');
+        if (!snap.exists()) break;
+        const updates = {};
+        snap.forEach((child) => { updates[child.key] = null; });
+        await db.ref(path).update(updates);
+        removed += snap.numChildren();
+        if (snap.numChildren() < PURGE_BATCH) break;
+      }
+      return removed;
+    }
+
+    async function runLogCleanup() {
+      if (!document.body.classList.contains('authed')) return;
+      try {
+        const v = await purgeOldLogs('/worker1/logs', 'ts');
+        const hm = await purgeOldLogs('/helmet1/logs', 'timestamp');
+        if (v || hm) console.log('[Cleanup] removed ' + v + ' vest and ' + hm + ' helmet logs older than ' + LOG_RETENTION_DAYS + ' days');
+      } catch (err) {
+        console.warn('[Cleanup] skipped:', err && err.message ? err.message : err);
+      }
+    }
+    setTimeout(runLogCleanup, 30000);
+    setInterval(runLogCleanup, 6 * 60 * 60 * 1000);
 
     // ===================== Web SOS Toggle — REMOVED =====================
     // The dashboard-side SOS button (and its '/worker1/commands/web_sos' write)
@@ -1502,20 +1663,12 @@ let audioEnabled = false;
         }, 1000);
       }
 
-      // ---- 3) Export confirmation toast. exportWorkerData() runs fully
-      // synchronously (including its try/catch/finally), and this
-      // listener is registered after the button's own inline onclick,
-      // so by the time this runs the export has already finished —
-      // we just check `dataHistory` (declared earlier in this same
-      // script) to report success vs. the "nothing to export" case. ----
-      const exportBtnEl = document.getElementById('exportBtn');
-      if (exportBtnEl) {
-        exportBtnEl.addEventListener('click', () => {
-          if (typeof dataHistory !== 'undefined' && dataHistory.length > 0) {
-            showToast('✓ Excel file exported — check your downloads', 'ok');
-          }
-        });
-      }
+      // ---- 3) Export confirmation toast. exportWorkerData() is async now (it
+      // downloads the saved logs first), so it announces success itself via
+      // this event instead of the toast guessing right after the click. ----
+      window.addEventListener('safeguard:exported', () => {
+        showToast('✓ Excel file exported — check your downloads', 'ok');
+      });
     })();
 
     // ===== Boot Loading Screen animation =====
