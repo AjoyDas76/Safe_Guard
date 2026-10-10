@@ -134,7 +134,7 @@
       <div class="card glass-panel system-card">
         <div class="system-icon" id="sysIcon"><i class="fa-solid fa-hourglass-start"></i></div>
         <div class="system-text">
-          <h2 id="sysStatusText">AWAITING FIREBASE</h2>
+          <h2 id="sysStatusText">AWAITING VEST</h2>
           <h3 id="sysSubText">NO DATA STREAM RECEIVED</h3>
           <p>Connecting to Realtime DB...</p>
         </div>
@@ -320,27 +320,9 @@
         </div>
       </div>
 
-    <!-- Device / Map / Workers -->
+    <!-- Map / Workers -->
     <div class="row">
-      <div class="card glass-panel col-flex-1">
-        <div class="card-title icon-device">Device Connection</div>
-        <div class="device-conn-list">
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-microchip"></i> ESP32</div> <span id="stEsp32" style="color: var(--amber);">Waiting...</span></div>
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-location-dot"></i> GPS Module</div> <span id="stGps" style="color: var(--amber);">Waiting...</span></div>
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-person-running"></i> MPU6050</div> <span id="stMotion" style="color: var(--amber);">Waiting...</span></div>
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-temperature-high"></i> BME280</div> <span id="stTemp" style="color: var(--amber);">Waiting...</span></div>
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-wifi"></i> Internet</div> <span id="stNet" style="color: var(--amber);">Waiting...</span></div>
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-helmet-safety"></i> Helmet Node</div> <span id="hStNano1" style="color: var(--amber);">Waiting...</span></div>
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-wifi"></i> Helmet ESP-01</div> <span id="hStEsp" style="color: var(--amber);">Waiting...</span></div>
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-heart-pulse"></i> MAX30100</div> <span id="hStPulse" style="color: var(--amber);">Waiting...</span></div>
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-smog"></i> MQ-2 Gas</div> <span id="hStGas" style="color: var(--amber);">Waiting...</span></div>
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-road-barrier"></i> Ultrasonic x3</div> <span id="hStUltra" style="color: var(--amber);">Waiting...</span></div>
-          <div class="device-item"><div class="device-name"><i class="fa-solid fa-clock"></i> Helmet Update</div> <span id="hDataAge" style="color: var(--amber);">--</span></div>
-        </div>
-        <div class="signal-bar-box"><span>Signal</span><span style="color: var(--amber); font-weight: 700;" id="rssiVal">-- dBm</span></div>
-      </div>
-
-      <div class="card glass-panel col-flex-1-5">
+      <div class="card glass-panel col-flex-1-5 map-card-large">
         <div class="card-title icon-satellite">
           <span class="sat-title-group">
             <span class="sat-title-icon" aria-hidden="true">
