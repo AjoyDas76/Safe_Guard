@@ -2591,3 +2591,55 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
     .card.glass-panel:hover,
     .sensor-card-v2:hover { transform: translateY(-3px); }
   }
+
+
+/* ============================================================
+   HELMET MODULE (additive) — merged into the existing dashboard cards:
+   header pill, status card, obstacle card, chart titles, and the
+   VEST/HELMET switch inside Reports + Alerts.
+   ============================================================ */
+/* helmet status card turns red while a helmet hazard is active */
+.system-card.h-alert .system-icon {
+  background: rgba(255, 51, 102, 0.12); border-color: var(--red); color: var(--red);
+}
+.system-card.h-alert .system-text h2 { color: var(--red); }
+
+/* chart title icons */
+.card-title.icon-h-hr::before   { content: "\f21e"; color: var(--red);   font-size: 15px; }
+.card-title.icon-h-spo2::before { content: "\f604"; color: var(--cyan);  font-size: 15px; }
+.card-title.icon-h-gas::before  { content: "\f75f"; color: var(--amber); font-size: 15px; }
+
+/* Obstacle card: Left / Front / Right values */
+.obst-lines { display: flex; flex-direction: column; margin-top: 3px; gap: 1px; }
+.obst-line { display: flex; justify-content: space-between; align-items: baseline; font-size: 10.5px; line-height: 1.45; }
+.obst-line span { color: var(--text-muted); font-size: 9px; }
+.obst-line b { font-weight: 800; color: var(--text-main); }
+.obst-line.hit b { color: var(--red); }
+
+#helmetConnPill { white-space: nowrap; }
+
+/* VEST / HELMET switch inside Reports + Alerts windows */
+.src-switch { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.hm-tab {
+  font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  padding: 8px 16px; border-radius: 8px;
+  border: 1px solid var(--glass-border, rgba(0,242,255,0.25));
+  background: transparent; color: #8493a8; cursor: pointer; transition: all 0.2s ease;
+}
+.hm-tab:hover { color: var(--cyan, #00f2ff); }
+.hm-tab.active {
+  background: linear-gradient(90deg, #2563eb 0%, #00f2ff 100%);
+  color: #04101c; box-shadow: 0 0 16px rgba(0,242,255,0.35); border-color: transparent;
+}
+.src-switch .hm-tab i { margin-right: 5px; }
+
+#reportsBody.show-helmet > :not(.src-switch):not(#helmetReportPane) { display: none !important; }
+#reportsBody:not(.show-helmet) > #helmetReportPane { display: none; }
+#alertsBody.show-helmet > :not(.src-switch):not(#helmetAlertsPane) { display: none !important; }
+#alertsBody:not(.show-helmet) > #helmetAlertsPane { display: none; }
+#hReportExportBtn { margin-top: 4px; }
+
+.alert-type-obstacle { background: rgba(249,115,22,0.18); color: #f97316; border: 1px solid rgba(249,115,22,0.4); }
+.alert-type-gas      { background: rgba(245,158,11,0.18); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); }
+.alert-type-hr       { background: rgba(255,51,102,0.18); color: #ff3366; border: 1px solid rgba(255,51,102,0.4); }
+.alert-type-spo2     { background: rgba(0,242,255,0.15);  color: #00f2ff; border: 1px solid rgba(0,242,255,0.4); }
