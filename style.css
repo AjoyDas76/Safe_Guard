@@ -2618,9 +2618,9 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
 .helmet-section .system-card.h-alert .system-text h2 { color: var(--red); }
 
 /* card-title icons (explicit classes, ID-prefixed to beat row-position rules) */
-#helmetSection .card-title.icon-h-hr::before   { content: "\f21e"; color: var(--red);    font-size: 15px; }
-#helmetSection .card-title.icon-h-spo2::before { content: "\f604"; color: var(--cyan);   font-size: 15px; }
-#helmetSection .card-title.icon-h-gas::before  { content: "\f75f"; color: var(--amber);  font-size: 15px; }
+.card-title.icon-h-hr::before   { content: "\f21e"; color: var(--red);    font-size: 15px; }
+.card-title.icon-h-spo2::before { content: "\f604"; color: var(--cyan);   font-size: 15px; }
+.card-title.icon-h-gas::before  { content: "\f75f"; color: var(--amber);  font-size: 15px; }
 #helmetSection .card-title.icon-h-dist::before { content: "\f07e"; color: var(--purple); font-size: 15px; }
 #helmetSection .card-title.icon-h-prox::before { content: "\e562"; color: var(--amber);  font-size: 14px; }
 #helmetSection .card-title.icon-device::before { content: "\f2db"; }
@@ -2692,3 +2692,10 @@ body.light-theme .prox-track { background: rgba(15, 23, 42, .08); }
   .section-divider::after { display: none; }
   .section-divider-actions { margin-left: auto; }
 }
+
+/* Obstacle card: Left / Front / Right values */
+.obst-lines { display: flex; flex-direction: column; margin-top: 3px; gap: 1px; }
+.obst-line { display: flex; justify-content: space-between; align-items: baseline; font-size: 10.5px; line-height: 1.45; }
+.obst-line span { color: var(--text-muted); font-size: 9px; }
+.obst-line b { font-weight: 800; color: var(--text-main); }
+.obst-line.hit b { color: var(--red); }
