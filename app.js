@@ -1,11 +1,3 @@
-// Global XSS-safe helper (was previously only defined inside an inner function,
-// which made processIncomingData() throw a ReferenceError on every update).
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[ch]));
-}
-
 let audioEnabled = false;
     let audioCtx = null;
 
@@ -642,8 +634,6 @@ let audioEnabled = false;
     let lastUpdateTime = Date.now();
     let lastRawDataStr = null;
     let isOfflineState = false;
-    let vestOfflineNow = false;   // vest stream is currently offline
-    let lastVestAlerts = [];      // last vest alert list (merged with helmet alerts on render)
 
     // Resets the whole dashboard to a clear "no live data" state.
     function goOffline() {
@@ -705,9 +695,11 @@ let audioEnabled = false;
 
       document.getElementById('lastSyncTime').innerText = '--:--:--';
 
-      // Clear vest alerts (helmet alerts, if any, stay in the merged list)
-      vestOfflineNow = true;
-      renderActiveAlerts([]);
+      // Clear Active Alerts and show an explicit "no live data" notice
+      document.getElementById('activeAlertCount').innerText = '0';
+      document.getElementById('alertBox').innerHTML =
+        '<div style="font-size: 10px; color: var(--amber); text-align: center; padding: 15px 0;">' +
+        '<i class="fa-solid fa-plug-circle-xmark"></i> No live data — device offline</div>';
 
       // Log the disconnect event
       const eventTable = document.getElementById('eventLogTable');
@@ -734,34 +726,22 @@ let audioEnabled = false;
       lastRawDataStr = rawStr;
       lastUpdateTime = Date.now();
       isOfflineState = false;
-      vestOfflineNow = false;
       processIncomingData(data);
     }
 
     // Renders the Active Alerts card at the bottom of the dashboard with
     // large, clearly visible alert entries — one per active hazard.
-    // Vest + helmet alerts are shown together. Helmet alerts are published by
-    // helmet.js in window.__hmAlerts; it calls window.refreshActiveAlerts()
-    // whenever they change.
-    function renderActiveAlerts(alerts, keepVest) {
-      if (!keepVest) lastVestAlerts = alerts;
-      const helmetAlerts = Array.isArray(window.__hmAlerts) ? window.__hmAlerts : [];
-      const all = lastVestAlerts.concat(helmetAlerts);
+    function renderActiveAlerts(alerts) {
       const alertBox = document.getElementById('alertBox');
       const countEl = document.getElementById('activeAlertCount');
-      countEl.innerText = all.length;
+      countEl.innerText = alerts.length;
 
-      if (all.length === 0) {
-        if (vestOfflineNow && !window.__hmOnline) {
-          alertBox.innerHTML = '<div style="font-size: 10px; color: var(--amber); text-align: center; padding: 15px 0;">' +
-            '<i class="fa-solid fa-plug-circle-xmark"></i> No live data — device offline</div>';
-        } else {
-          alertBox.innerHTML = '<div style="font-size: 10px; color: var(--text-muted); text-align: center; padding: 15px 0;">No active hazardous alerts</div>';
-        }
+      if (alerts.length === 0) {
+        alertBox.innerHTML = '<div style="font-size: 10px; color: var(--text-muted); text-align: center; padding: 15px 0;">No active hazardous alerts</div>';
         return;
       }
 
-      alertBox.innerHTML = all.map((a) => `
+      alertBox.innerHTML = alerts.map((a) => `
         <div class="active-alert-item">
           <i class="fa-solid ${a.icon} active-alert-icon"></i>
           <div class="active-alert-text">
@@ -771,7 +751,6 @@ let audioEnabled = false;
         </div>
       `).join('');
     }
-    window.refreshActiveAlerts = function () { renderActiveAlerts(lastVestAlerts, true); };
 
     // CORE UI UPDATE FUNCTION
     function processIncomingData(data) {
@@ -2226,5 +2205,743 @@ let audioEnabled = false;
             </div>
           `;
         }).join('');
+      }
+    })();
+
+    // =========================================================
+    // HELMET MODULE (additive)
+    // Shows the smart helmet's data (Firebase '/helmet1/live' and
+    // '/helmet1/logs') the same way the vest is shown: live sensor
+    // cards + sparklines, live charts, proximity meters, device
+    // status, active alerts, event history, Excel export, and the
+    // helmet tabs inside the Reports / Alerts windows.
+    //
+    // Nothing above this block is modified. It only reuses a few
+    // existing globals (db, createSparkline, updateSparkline,
+    // createLiveChart, pushLiveChartPoint, flattenToObject,
+    // playEmergencySound, sidebar).
+    //
+    // Thresholds are the same as the helmet firmware
+    // (Nano1_SensorNode_v3.ino).
+    // =========================================================
+    (function initHelmetModule() {
+      if (!document.getElementById('hSysIcon')) return;
+
+      const LIVE_PATH = '/helmet1/live';
+      const LOGS_PATH = '/helmet1/logs';
+
+      const TH = {
+        OBST_CM: 50,      // OBSTACLE_THRESHOLD_CM
+        NO_ECHO: 999,     // firmware sends 999 = nothing in range
+        GAS_MARGIN: 150,  // GAS_MARGIN above the clean-air baseline
+        HR_MIN: 50, HR_MAX: 120, SPO2_MIN: 90
+      };
+      const PROX_SCALE_CM = 100;          // bar is full at 0 cm, empty at 100 cm
+      const HELMET_STALE_MS = 20000;      // no new data for 20s => offline
+      const HEALTH_CONFIRM = 3;           // abnormal vitals must repeat 3 updates
+      const MAX_H_HISTORY = 10;
+      const MAX_REPORT_ENTRIES = 20000;
+      const OFFLINE_GAP_MS = 90 * 1000;   // logs are written every ~30s
+
+      const $ = (id) => document.getElementById(id);
+      const esc = (v) => String(v).replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+      const toNum = (v, d) => {
+        const x = Number(v);
+        return (v === undefined || v === null || v === '' || !isFinite(x)) ? d : x;
+      };
+      const setText = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+      const setStatus = (id, text, color) => {
+        const el = $(id);
+        if (!el) return;
+        el.textContent = text;
+        el.style.color = color;
+      };
+
+      const SIDES = [
+        { key: 'L', name: 'LEFT',  bn: 'বাম',   dist: 'distLeft',  flag: 'obstLeft'  },
+        { key: 'F', name: 'FRONT', bn: 'সামনে', dist: 'distFront', flag: 'obstFront' },
+        { key: 'R', name: 'RIGHT', bn: 'ডান',   dist: 'distRight', flag: 'obstRight' }
+      ];
+
+      // ---------- data helpers ----------
+      function normalize(d) {
+        const p = {
+          hr: toNum(d.heartRate, 0),
+          spo2: toNum(d.spo2, 0),
+          gasLevel: toNum(d.gasLevel, 0),
+          gasBase: toNum(d.gasBaseline, 0),
+          gasFlag: toNum(d.gas, 0) === 1,
+          obstFlag: toNum(d.obstacle, 0) === 1,
+          dist: {}, obst: {}
+        };
+        SIDES.forEach((s) => {
+          p.dist[s.key] = toNum(d[s.dist], TH.NO_ECHO);
+          p.obst[s.key] = toNum(d[s.flag], 0) === 1;
+        });
+        return p;
+      }
+      const anyObst = (p) => p.obstFlag || SIDES.some((s) => p.obst[s.key]);
+      const hrBad = (p) => p.hr > 0 && (p.hr < TH.HR_MIN || p.hr > TH.HR_MAX);
+      const spo2Bad = (p) => p.spo2 > 0 && p.spo2 < TH.SPO2_MIN;
+
+      // One list of alerts for a reading. `health` says whether abnormal
+      // vitals are confirmed (live view debounces them, logs do not).
+      function evaluateAlerts(p, health) {
+        const list = [];
+        let sideHit = false;
+        SIDES.forEach((s) => {
+          if (!p.obst[s.key]) return;
+          sideHit = true;
+          const d = p.dist[s.key];
+          const dTxt = d >= TH.NO_ECHO ? '' : d + ' cm';
+          list.push({
+            key: 'obstacle', label: 'OBSTACLE', icon: 'fa-road-barrier',
+            title: 'Obstacle Detected — ' + s.name,
+            detail: (dTxt ? 'Object ' + dTxt + ' away' : 'Object detected') + ' — closer than ' + TH.OBST_CM + ' cm',
+            detailBn: s.bn + ' দিকে বাধা' + (dTxt ? ' (' + dTxt + ')' : '') + ' — ' + TH.OBST_CM + ' সেমি-র চেয়ে কাছে'
+          });
+        });
+        if (!sideHit && p.obstFlag) {
+          list.push({
+            key: 'obstacle', label: 'OBSTACLE', icon: 'fa-road-barrier',
+            title: 'Obstacle Detected',
+            detail: 'An ultrasonic sensor reports an obstacle',
+            detailBn: 'আলট্রাসনিক সেন্সর বাধা শনাক্ত করেছে'
+          });
+        }
+        if (p.gasFlag) {
+          const extra = p.gasBase ? ' — baseline ' + p.gasBase + ' (+' + (p.gasLevel - p.gasBase) + ')' : '';
+          list.push({
+            key: 'gas', label: 'GAS', icon: 'fa-smog',
+            title: 'Gas Detected',
+            detail: 'MQ-2 level ' + p.gasLevel + extra,
+            detailBn: 'গ্যাস শনাক্ত হয়েছে: MQ-2 লেভেল ' + p.gasLevel + (p.gasBase ? ' (বেসলাইন ' + p.gasBase + ')' : '')
+          });
+        }
+        if (health && health.hr) {
+          list.push({
+            key: 'hr', label: 'HEART RATE', icon: 'fa-heart-pulse',
+            title: p.hr < TH.HR_MIN ? 'Low Heart Rate' : 'High Heart Rate',
+            detail: 'Reading is ' + p.hr + ' bpm — outside the safe range of ' + TH.HR_MIN + ' – ' + TH.HR_MAX + ' bpm',
+            detailBn: (p.hr < TH.HR_MIN ? 'কম' : 'বেশি') + ' হার্ট রেট: ' + p.hr + ' bpm (নিরাপদ সীমা ' + TH.HR_MIN + '–' + TH.HR_MAX + ')'
+          });
+        }
+        if (health && health.spo2) {
+          list.push({
+            key: 'spo2', label: 'SPO2', icon: 'fa-lungs',
+            title: 'Low SpO₂',
+            detail: 'Reading is ' + p.spo2 + '% — below the safe minimum of ' + TH.SPO2_MIN + '%',
+            detailBn: 'SpO₂ কম: ' + p.spo2 + '% (নিরাপদ সীমা ' + TH.SPO2_MIN + '% এর উপরে)'
+          });
+        }
+        return list;
+      }
+
+      // ---------- live charts / sparklines ----------
+      createSparkline('hHrSpark', '#ff3366', 'rgba(255, 51, 102, 0.35)');
+      createSparkline('hSpo2Spark', '#00f2ff', 'rgba(0, 242, 255, 0.35)');
+      createSparkline('hGasSpark', '#f59e0b', 'rgba(245, 158, 11, 0.35)');
+
+      const hrChart = createLiveChart('hHrChart', 'Heart Rate (bpm)', '#ff3366', 'rgba(255,51,102,0.1)');
+      const spo2Chart = createLiveChart('hSpo2Chart', 'SpO₂ (%)', '#00f2ff', 'rgba(0,242,255,0.1)');
+      const gasChart = createLiveChart('hGasChart', 'Gas Level', '#f59e0b', 'rgba(245,158,11,0.1)');
+      gasChart.data.datasets.push({
+        label: 'Alert level', data: [], borderColor: '#ff3366', borderDash: [5, 4],
+        borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0
+      });
+      gasChart.options.plugins.legend = { display: true, labels: { color: '#8493a8', font: { size: 8 } } };
+      spo2Chart.options.scales.y.suggestedMin = 80;
+      spo2Chart.options.scales.y.suggestedMax = 100;
+
+      function pushPoints(chart, label, values) {
+        chart.data.labels.push(label);
+        values.forEach((v, i) => chart.data.datasets[i].data.push(v));
+        if (chart.data.labels.length > 10) {
+          chart.data.labels.shift();
+          chart.data.datasets.forEach((ds) => ds.data.shift());
+        }
+        chart.update();
+      }
+
+      // ---------- state ----------
+      let hConnected = false;
+      let hOffline = false;
+      let hLastUpdate = Date.now();
+      let hLastRaw = null;
+      let hHrBadCount = 0;
+      let hSpo2BadCount = 0;
+      let hAccessDenied = false;
+      let helmetAlerts = [];
+      let lastVestAlerts = [];
+
+      const pillEl = $('helmetConnPill');
+
+      function setPill(cls, label) {
+        if (!pillEl) return;
+        pillEl.classList.toggle('connected', cls === 'connected');
+        pillEl.innerHTML = '<i class="fa-solid fa-helmet-safety" style="font-size: 9px;"></i> ' + label;
+      }
+
+      function setDeviceRows(text, color) {
+        ['hStNano1', 'hStEsp', 'hStPulse', 'hStGas', 'hStUltra'].forEach((id) => setStatus(id, text, color));
+      }
+
+      function setConnectedUi() {
+        hConnected = true;
+        hOffline = false;
+        setPill('connected', 'HELMET STREAMING');
+        $('hSysIcon').classList.add('active');
+        $('hSysIcon').innerHTML = '<i class="fa-solid fa-helmet-safety"></i>';
+        $('hSysStatusText').classList.add('active');
+        setText('hSysSubText', 'REALTIME STREAMING');
+        setText('hSysNote', 'Live from Firebase /helmet1');
+        setStatus('hInfoStatus', 'ONLINE', 'var(--green)');
+        setDeviceRows('Connected', 'var(--green)');
+      }
+
+      function goOffline() {
+        if (hOffline) return;
+        hOffline = true;
+        hConnected = false;
+        hHrBadCount = 0;
+        hSpo2BadCount = 0;
+
+        setPill('offline', 'HELMET OFFLINE');
+        $('hSysIcon').classList.remove('active');
+        $('hSysIcon').innerHTML = '<i class="fa-solid fa-plug-circle-xmark"></i>';
+        $('hSysStatusText').classList.remove('active');
+        $('hSysStatusText').textContent = 'HELMET OFFLINE';
+        $('hSysStatusText').closest('.system-card').classList.remove('h-alert');
+        setText('hSysSubText', 'NO DATA STREAM RECEIVED');
+        setText('hSysNote', 'Waiting for the helmet to send data...');
+        setStatus('hInfoStatus', 'OFFLINE', 'var(--red)');
+        setText('hLastSync', '--:--:--');
+        setDeviceRows('Disconnected', 'var(--red)');
+        setText('hDataAge', '--');
+
+        setText('hHrVal', '--');
+        setStatus('hHrStatus', 'No Data', 'var(--text-muted)');
+        setText('hSpo2Val', '--');
+        setStatus('hSpo2Status', 'No Data', 'var(--text-muted)');
+        setText('hGasVal', '--');
+        setStatus('hGasStatus', 'No Data', 'var(--text-muted)');
+        const obOff = $('hObstBadge');
+        obOff.className = 'badge badge-safe';
+        obOff.textContent = 'DETECTED OBJECT: --';
+        SIDES.forEach((s) => {
+          setText('hObst' + s.key, '--');
+          $('hObstRow' + s.key).classList.remove('hit');
+        });
+
+        helmetAlerts = [];
+        refreshAlerts();
+        addEventRow('Helmet Connection Lost', 'badge-alert', 'OFFLINE', 'No data received');
+      }
+
+      // ---------- merged Active Alerts + Event History (vest + helmet share one card each) ----------
+      const originalRenderActiveAlerts = window.renderActiveAlerts;
+      const helmetForDisplay = () => helmetAlerts.map((a) => Object.assign({}, a, { title: 'Helmet · ' + a.title }));
+
+      // The vest code calls renderActiveAlerts(list) on every vest update; this wrapper
+      // remembers the vest list and always draws vest + helmet alerts together.
+      window.renderActiveAlerts = function (alerts) {
+        lastVestAlerts = (alerts || []).slice();
+        originalRenderActiveAlerts(lastVestAlerts.concat(helmetForDisplay()));
+      };
+
+      function refreshAlerts() {
+        const vestOffline = (typeof isOfflineState !== 'undefined') && isOfflineState;
+        if (vestOffline && !hConnected) {
+          // both offline: keep the same notice the vest shows
+          $('activeAlertCount').innerText = '0';
+          $('alertBox').innerHTML =
+            '<div style="font-size: 10px; color: var(--amber); text-align: center; padding: 15px 0;">' +
+            '<i class="fa-solid fa-plug-circle-xmark"></i> No live data — device offline</div>';
+          return;
+        }
+        originalRenderActiveAlerts((vestOffline ? [] : lastVestAlerts).concat(helmetForDisplay()));
+      }
+
+      function addEventRow(eventLabel, badgeClass, badgeText, details) {
+        const table = $('eventLogTable');
+        if (!table) return;
+        table.querySelectorAll('td[colspan]').forEach((td) => td.closest('tr').remove());
+        const row = document.createElement('tr');
+        row.innerHTML = '<td>' + esc(new Date().toLocaleTimeString()) + '</td><td>' + esc(eventLabel) +
+          '</td><td><span class="badge ' + badgeClass + '">' + esc(badgeText) + '</span></td><td>' + esc(details) + '</td>';
+        table.insertBefore(row, table.firstChild);
+        while (table.children.length > 5) table.removeChild(table.lastChild);
+      }
+
+      function processHelmet(d) {
+        if (!d || typeof d !== 'object') return;
+        if (!hConnected) setConnectedUi();
+
+        const p = normalize(d);
+        const timeStr = new Date().toLocaleTimeString();
+        setText('hLastSync', timeStr);
+
+        // --- debounce abnormal vitals (the helmet itself waits ~3 s too) ---
+        hHrBadCount = hrBad(p) ? hHrBadCount + 1 : 0;
+        hSpo2BadCount = spo2Bad(p) ? hSpo2BadCount + 1 : 0;
+        const health = { hr: hHrBadCount >= HEALTH_CONFIRM, spo2: hSpo2BadCount >= HEALTH_CONFIRM };
+
+        // --- heart rate ---
+        if (p.hr > 0) {
+          setText('hHrVal', String(Math.round(p.hr)));
+          if (health.hr) setStatus('hHrStatus', p.hr < TH.HR_MIN ? 'Low Heart Rate' : 'High Heart Rate', 'var(--red)');
+          else if (hrBad(p)) setStatus('hHrStatus', 'Checking...', 'var(--amber)');
+          else setStatus('hHrStatus', 'Normal', 'var(--green)');
+        } else {
+          setText('hHrVal', '--');
+          setStatus('hHrStatus', 'No finger / no signal', 'var(--text-muted)');
+        }
+        updateSparkline('hHrSpark', p.hr > 0 ? p.hr : null);
+        pushLiveChartPoint(hrChart, timeStr, p.hr > 0 ? p.hr : null);
+
+        // --- SpO2 ---
+        if (p.spo2 > 0) {
+          setText('hSpo2Val', String(Math.round(p.spo2)));
+          if (health.spo2) setStatus('hSpo2Status', 'Low SpO₂', 'var(--red)');
+          else if (spo2Bad(p)) setStatus('hSpo2Status', 'Checking...', 'var(--amber)');
+          else setStatus('hSpo2Status', 'Normal', 'var(--green)');
+        } else {
+          setText('hSpo2Val', '--');
+          setStatus('hSpo2Status', 'No finger / no signal', 'var(--text-muted)');
+        }
+        updateSparkline('hSpo2Spark', p.spo2 > 0 ? p.spo2 : null);
+        pushLiveChartPoint(spo2Chart, timeStr, p.spo2 > 0 ? p.spo2 : null);
+
+        // --- gas ---
+        setText('hGasVal', String(Math.round(p.gasLevel)));
+        if (p.gasBase <= 0) {
+          setStatus('hGasStatus', 'Warming up...', 'var(--amber)');
+          setText('hGasRange', 'Calibrating clean-air baseline (~30 s)');
+        } else {
+          setStatus('hGasStatus', p.gasFlag ? 'GAS DETECTED' : 'Safe', p.gasFlag ? 'var(--red)' : 'var(--green)');
+          setText('hGasRange', 'Baseline ' + p.gasBase + ' · Alert above ' + (p.gasBase + TH.GAS_MARGIN));
+        }
+        updateSparkline('hGasSpark', p.gasLevel);
+        pushPoints(gasChart, timeStr, [p.gasLevel, p.gasBase > 0 ? p.gasBase + TH.GAS_MARGIN : null]);
+
+        // --- obstacle / proximity ---
+        const detected = anyObst(p);
+        const ob = $('hObstBadge');
+        ob.className = 'badge ' + (detected ? 'badge-alert' : 'badge-safe');
+        ob.textContent = 'DETECTED OBJECT: ' + (detected ? 'ALERT' : 'SAFE');
+
+        SIDES.forEach((s) => {
+          const d1 = p.dist[s.key];
+          const clear = d1 >= TH.NO_ECHO;
+          const hit = p.obst[s.key];
+          setText('hObst' + s.key, d1 + ' cm');
+          $('hObstRow' + s.key).classList.toggle('hit', hit);
+        });
+        // --- device rows ---
+        setStatus('hStPulse', p.hr > 0 ? 'Reading' : 'No finger', p.hr > 0 ? 'var(--green)' : 'var(--amber)');
+        setStatus('hStGas', p.gasBase > 0 ? 'Ready' : 'Warming up', p.gasBase > 0 ? 'var(--green)' : 'var(--amber)');
+
+        // --- alerts ---
+        const alerts = evaluateAlerts(p, health);
+        const isHazard = alerts.length > 0;
+        helmetAlerts = alerts;
+        refreshAlerts();
+        if (isHazard && typeof playEmergencySound === 'function') playEmergencySound();
+
+        $('hSysStatusText').closest('.system-card').classList.toggle('h-alert', isHazard);
+        setText('hSysStatusText', isHazard ? 'HELMET ALERT' : 'HELMET NORMAL');
+
+        addEventRow(isHazard ? 'Helmet Hazard Alert' : 'Helmet Sync', isHazard ? 'badge-alert' : 'badge-safe', isHazard ? 'ALERT' : 'SAFE',
+          'HR ' + (p.hr > 0 ? Math.round(p.hr) : '--') + ' | SpO₂ ' + (p.spo2 > 0 ? Math.round(p.spo2) : '--') + ' | Gas ' + Math.round(p.gasLevel));
+      }
+
+      function handleSnapshot(data) {
+        if (!data) return;
+        const raw = JSON.stringify(data);
+        if (raw === hLastRaw) return;
+        hLastRaw = raw;
+        hLastUpdate = Date.now();
+        hOffline = false;
+        processHelmet(data);
+      }
+
+      function showAccessDenied() {
+        if (hAccessDenied) return;
+        hAccessDenied = true;
+        setPill('offline', 'HELMET NO ACCESS');
+        $('hSysIcon').innerHTML = '<i class="fa-solid fa-lock"></i>';
+        setText('hSysStatusText', 'ACCESS DENIED');
+        setText('hSysSubText', 'FIREBASE RULES BLOCK /helmet1');
+        setText('hSysNote', "Add read permission for 'helmet1' in Realtime Database Rules.");
+      }
+
+      // ---------- Firebase listeners ----------
+      db.ref(LIVE_PATH).on('value', (snap) => {
+        handleSnapshot(snap.val());
+      }, (err) => {
+        if (err && /permission/i.test(String(err.code || err.message))) showAccessDenied();
+      });
+
+      setInterval(() => {
+        if (hAccessDenied) return;
+        db.ref(LIVE_PATH).once('value').then((snap) => {
+          if (snap.exists()) handleSnapshot(snap.val());
+        }).catch(() => {});
+      }, 2000);
+
+      setInterval(() => {
+        if (hConnected && !hOffline && (Date.now() - hLastUpdate > HELMET_STALE_MS)) goOffline();
+        if (hConnected && !hOffline) {
+          setText('hDataAge', Math.max(0, Math.round((Date.now() - hLastUpdate) / 1000)) + ' s ago');
+        }
+      }, 1000);
+
+      // =========================================================
+      // Reports + Alerts windows: VEST / HELMET switch
+      // =========================================================
+      const reportsBodyEl = $('reportsBody');
+      const alertsBodyEl = $('alertsBody');
+      const reportsModalEl = $('reportsModal');
+      const alertsModalEl = $('alertsModal');
+
+      function rangeStart(range) {
+        const day = 24 * 60 * 60 * 1000;
+        return Date.now() - (range === 'daily' ? day : range === 'weekly' ? 7 * day : 30 * day);
+      }
+
+      function fetchLogs(range) {
+        return db.ref(LOGS_PATH).orderByChild('timestamp').startAt(rangeStart(range))
+          .limitToLast(MAX_REPORT_ENTRIES).once('value').then((snap) => {
+            const entries = [];
+            snap.forEach((child) => {
+              const v = child.val();
+              if (v && typeof v.timestamp === 'number') entries.push({ ts: v.timestamp, p: normalize(v) });
+            });
+            entries.sort((a, b) => a.ts - b.ts);
+            return { entries, capped: snap.numChildren() >= MAX_REPORT_ENTRIES };
+          });
+      }
+
+      function syncSourceButtons(container, src) {
+        container.querySelectorAll('.src-switch .hm-tab').forEach((b) => b.classList.toggle('active', b.dataset.src === src));
+      }
+      function resetOnClose(modalEl, bodyEl) {
+        if (!modalEl || !bodyEl) return;
+        new MutationObserver(() => {
+          if (!modalEl.classList.contains('active')) {
+            bodyEl.classList.remove('show-helmet');
+            syncSourceButtons(bodyEl, 'vest');
+          }
+        }).observe(modalEl, { attributes: true, attributeFilter: ['class'] });
+      }
+      resetOnClose(reportsModalEl, reportsBodyEl);
+      resetOnClose(alertsModalEl, alertsBodyEl);
+
+      // ---------- Reports ----------
+      let hReportRange = 'daily';
+      let hReportEntries = [];
+      let hReportOffline = [];
+      const hCharts = { vitals: null, gas: null, alerts: null };
+
+      window.setReportsSource = function (src) {
+        if (!reportsBodyEl) return;
+        reportsBodyEl.classList.toggle('show-helmet', src === 'helmet');
+        syncSourceButtons(reportsBodyEl, src);
+        if (src === 'helmet') loadHelmetReport(hReportRange);
+      };
+      window.setHelmetReportRange = function (range) {
+        hReportRange = range;
+        document.querySelectorAll('#helmetReportPane .hm-tab').forEach((b) => b.classList.toggle('active', b.dataset.hrange === range));
+        loadHelmetReport(range);
+      };
+
+      function offlineEvents(entries) {
+        const events = [];
+        for (let i = 1; i < entries.length; i++) {
+          const gap = entries[i].ts - entries[i - 1].ts;
+          if (gap > OFFLINE_GAP_MS) events.push({ from: entries[i - 1].ts, to: entries[i].ts, durationMs: gap, ongoing: false });
+        }
+        if (entries.length) {
+          const lastTs = entries[entries.length - 1].ts;
+          const now = Date.now();
+          if (now - lastTs > OFFLINE_GAP_MS) events.push({ from: lastTs, to: now, durationMs: now - lastTs, ongoing: true });
+        }
+        return events;
+      }
+      const fmtT = (ts) => new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      function fmtDur(ms) {
+        const m = Math.round(ms / 60000);
+        if (m < 1) return '< ১ মিনিট';
+        if (m < 60) return m + ' মিনিট';
+        const h = Math.floor(m / 60), r = m % 60;
+        return h + ' ঘণ্টা' + (r ? ' ' + r + ' মিনিট' : '');
+      }
+
+      function loadHelmetReport(range) {
+        const summaryEl = $('hReportSummaryCards');
+        const chartsWrap = $('hReportChartsWrap');
+        const msgEl = $('hReportStateMsg');
+        const exportBtn = $('hReportExportBtn');
+        msgEl.style.display = 'block';
+        msgEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading helmet report...';
+        chartsWrap.style.display = 'none';
+        summaryEl.innerHTML = '';
+        exportBtn.disabled = true;
+
+        fetchLogs(range).then(({ entries, capped }) => {
+          hReportEntries = entries;
+          hReportOffline = offlineEvents(entries);
+          if (!entries.length) {
+            msgEl.style.display = 'block';
+            msgEl.innerHTML = 'এই সময়সীমার জন্য হেলমেটের কোনো রিপোর্ট ডাটা জমা হয়নি।<br><span style="font-size:10.5px;">হেলমেট চালু থাকলে ও ডাটা পাঠালে এখানে স্বয়ংক্রিয়ভাবে হিস্ট্রি জমা হবে।</span>';
+            renderConnectivity(hReportOffline);
+            return;
+          }
+          msgEl.style.display = capped ? 'block' : 'none';
+          if (capped) msgEl.innerHTML = '<span style="font-size:10.5px;">সর্বশেষ ' + MAX_REPORT_ENTRIES + 'টি রেকর্ড দেখানো হচ্ছে।</span>';
+          chartsWrap.style.display = 'block';
+          exportBtn.disabled = false;
+          renderReportSummary(entries, hReportOffline);
+          renderReportCharts(entries, range);
+          renderConnectivity(hReportOffline);
+        }).catch((err) => {
+          msgEl.style.display = 'block';
+          msgEl.textContent = 'হেলমেট রিপোর্ট লোড করতে ব্যর্থ হয়েছে: ' + err.message;
+          chartsWrap.style.display = 'none';
+        });
+      }
+
+      function renderConnectivity(events) {
+        const wrap = $('hReportConnectivityWrap');
+        if (!events.length) {
+          wrap.innerHTML = '<div class="report-connectivity-title"><i class="fa-solid fa-tower-broadcast"></i> CONNECTIVITY</div>' +
+            '<div class="offline-empty">এই সময়সীমায় কোনো সংযোগ বিচ্ছিন্নতা পাওয়া যায়নি — হেলমেট সবসময় ডাটা পাঠিয়েছে।</div>';
+          return;
+        }
+        const items = events.slice().reverse().map((e) => `
+          <div class="offline-event-item ${e.ongoing ? 'offline-event-live' : ''}">
+            <i class="fa-solid ${e.ongoing ? 'fa-triangle-exclamation' : 'fa-plug-circle-xmark'}"></i>
+            <div class="offline-event-text">
+              <div>${e.ongoing ? 'বর্তমানে অফলাইন' : 'অফলাইন হয়েছিল'} — ${fmtT(e.from)}</div>
+              <div class="offline-event-sub">${e.ongoing ? 'শেষ ডাটা পাওয়া গিয়েছিল এই সময়ে' : 'সংযোগ ফিরেছে: ' + fmtT(e.to)} &middot; স্থায়িত্ব: ${fmtDur(e.durationMs)}</div>
+            </div>
+          </div>`).join('');
+        wrap.innerHTML = '<div class="report-connectivity-title"><i class="fa-solid fa-tower-broadcast"></i> CONNECTIVITY (' + events.length + ')</div>' +
+          '<div class="offline-event-list">' + items + '</div>';
+      }
+
+      const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+
+      function renderReportSummary(entries, offline) {
+        const hrs = entries.map((e) => e.p.hr).filter((v) => v > 0);
+        const sps = entries.map((e) => e.p.spo2).filter((v) => v > 0);
+        const gases = entries.map((e) => e.p.gasLevel);
+        const f1 = (v, u) => (v === null ? '--' : v.toFixed(1) + u);
+        const cards = [
+          { label: 'Records', value: String(entries.length) },
+          { label: 'Avg Heart Rate', value: f1(avg(hrs), ' bpm') },
+          { label: 'HR Min – Max', value: hrs.length ? Math.min.apply(null, hrs) + ' – ' + Math.max.apply(null, hrs) : '--' },
+          { label: 'Avg SpO₂', value: f1(avg(sps), '%') },
+          { label: 'Min SpO₂', value: sps.length ? Math.min.apply(null, sps) + '%' : '--' },
+          { label: 'Peak Gas Level', value: gases.length ? String(Math.max.apply(null, gases)) : '--' },
+          { label: 'Obstacle Snapshots', value: String(entries.filter((e) => anyObst(e.p)).length) },
+          { label: 'Gas Snapshots', value: String(entries.filter((e) => e.p.gasFlag).length) },
+          { label: 'Vitals Snapshots', value: String(entries.filter((e) => hrBad(e.p) || spo2Bad(e.p)).length) },
+          { label: 'Offline Events', value: String(offline.length) }
+        ];
+        $('hReportSummaryCards').innerHTML = cards.map((c) => `
+          <div class="report-summary-card">
+            <div class="rsc-label">${c.label}</div>
+            <div class="rsc-value">${c.value}</div>
+          </div>`).join('');
+      }
+
+      function chartOpts(stacked) {
+        return {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#8493a8', font: { size: 9 } } } },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8493a8', font: { size: 8 }, maxTicksLimit: 12 }, stacked: !!stacked },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8493a8', font: { size: 8 } }, stacked: !!stacked, beginAtZero: !!stacked }
+          }
+        };
+      }
+
+      // Groups sorted entries (by bucket index for daily, by day for longer
+      // ranges) and reduces each group to one chart point.
+      function aggregate(entries, keyFn) {
+        const groups = [];
+        const index = new Map();
+        entries.forEach((e, i) => {
+          const k = keyFn(e, i);
+          let g = index.get(k);
+          if (!g) { g = { ts: e.ts, hr: [], sp: [], gas: 0, thr: null, obst: 0, gasN: 0, vit: 0 }; index.set(k, g); groups.push(g); }
+          if (e.p.hr > 0) g.hr.push(e.p.hr);
+          if (e.p.spo2 > 0) g.sp.push(e.p.spo2);
+          if (e.p.gasLevel > g.gas) g.gas = e.p.gasLevel;
+          if (e.p.gasBase > 0) g.thr = e.p.gasBase + TH.GAS_MARGIN;
+          if (anyObst(e.p)) g.obst++;
+          if (e.p.gasFlag) g.gasN++;
+          if (hrBad(e.p) || spo2Bad(e.p)) g.vit++;
+        });
+        const r1 = (v) => (v === null ? null : Math.round(v * 10) / 10);
+        return groups.map((g) => ({ ts: g.ts, hr: r1(avg(g.hr)), sp: r1(avg(g.sp)), gas: g.gas, thr: g.thr, obst: g.obst, gasN: g.gasN, vit: g.vit }));
+      }
+
+      function renderReportCharts(entries, range) {
+        Object.keys(hCharts).forEach((k) => { if (hCharts[k]) { hCharts[k].destroy(); hCharts[k] = null; } });
+        let pts, labels;
+        if (range === 'daily') {
+          const bucket = Math.max(1, Math.ceil(entries.length / 720));
+          pts = aggregate(entries, (e, i) => Math.floor(i / bucket));
+          labels = pts.map((g) => new Date(g.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        } else {
+          const dayKey = (e) => new Date(e.ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
+          pts = aggregate(entries, dayKey);
+          labels = pts.map((g) => dayKey(g));
+        }
+        const line = (label, data, color) => ({ label, data, borderColor: color, backgroundColor: color + '1a', tension: 0.3, pointRadius: range === 'daily' ? 0 : 3, borderWidth: 1.6, spanGaps: false });
+
+        hCharts.vitals = new Chart($('hReportVitalsChart').getContext('2d'), {
+          type: 'line',
+          data: { labels, datasets: [line('Heart Rate (bpm)', pts.map((g) => g.hr), '#ff3366'), line('SpO₂ (%)', pts.map((g) => g.sp), '#00f2ff')] },
+          options: chartOpts()
+        });
+        const gasLine = line((range === 'daily' ? 'Gas Level' : 'Peak Gas Level'), pts.map((g) => g.gas), '#f59e0b');
+        gasLine.fill = true;
+        hCharts.gas = new Chart($('hReportGasChart').getContext('2d'), {
+          type: 'line',
+          data: { labels, datasets: [gasLine, { label: 'Alert level', data: pts.map((g) => g.thr), borderColor: '#ff3366', borderDash: [5, 4], borderWidth: 1.2, pointRadius: 0, fill: false }] },
+          options: chartOpts()
+        });
+        hCharts.alerts = new Chart($('hReportAlertChart').getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              { label: 'Obstacle', data: pts.map((g) => g.obst), backgroundColor: '#f97316' },
+              { label: 'Gas', data: pts.map((g) => g.gasN), backgroundColor: '#f59e0b' },
+              { label: 'Vitals', data: pts.map((g) => g.vit), backgroundColor: '#ff3366' }
+            ]
+          },
+          options: chartOpts(true)
+        });
+      }
+
+      window.exportHelmetReportData = function () {
+        if (!hReportEntries.length) return;
+        const btn = $('hReportExportBtn');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting...';
+        btn.disabled = true;
+        try {
+          const header = ['Timestamp', 'Heart Rate (bpm)', 'SpO2 (%)', 'Gas Level', 'Gas Baseline', 'Dist Left (cm)', 'Dist Front (cm)', 'Dist Right (cm)', 'Obstacle', 'Gas Alert', 'Vitals Alert'];
+          const rows = hReportEntries.map((e) => [
+            new Date(e.ts).toLocaleString(),
+            e.p.hr > 0 ? e.p.hr : '', e.p.spo2 > 0 ? e.p.spo2 : '',
+            e.p.gasLevel, e.p.gasBase,
+            e.p.dist.L, e.p.dist.F, e.p.dist.R,
+            anyObst(e.p) ? 'YES' : 'NO', e.p.gasFlag ? 'YES' : 'NO',
+            (hrBad(e.p) || spo2Bad(e.p)) ? 'YES' : 'NO'
+          ]);
+          const sheet = XLSX.utils.aoa_to_sheet([
+            ['Helmet ID', 'HELMET-001'], ['Worker ID', 'SV-001'],
+            ['Report Range', hReportRange.toUpperCase()],
+            ['Generated At', new Date().toLocaleString()],
+            ['Records', String(rows.length)], [], header, ...rows
+          ]);
+          sheet['!cols'] = [{ wch: 20 }, ...header.slice(1).map(() => ({ wch: 15 }))];
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, sheet, 'helmet ' + hReportRange);
+          if (hReportOffline.length) {
+            const off = XLSX.utils.aoa_to_sheet([
+              ['Offline Since', 'Reconnected / Status', 'Duration'],
+              ...hReportOffline.map((e) => [new Date(e.from).toLocaleString(), e.ongoing ? 'Still offline' : new Date(e.to).toLocaleString(), fmtDur(e.durationMs)])
+            ]);
+            off['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 14 }];
+            XLSX.utils.book_append_sheet(wb, off, 'offline events');
+          }
+          XLSX.writeFile(wb, 'helmet1_' + hReportRange + '_report_' + new Date().toISOString().replace(/[:.]/g, '-') + '.xlsx');
+        } catch (err) {
+          alert('রিপোর্ট এক্সপোর্ট করতে ব্যর্থ হয়েছে:\n' + err.message);
+        } finally {
+          btn.innerHTML = originalHtml;
+          btn.disabled = false;
+        }
+      };
+
+      // ---------- Alerts window ----------
+      let hAlertsRange = 'daily';
+
+      window.setAlertsSource = function (src) {
+        if (!alertsBodyEl) return;
+        alertsBodyEl.classList.toggle('show-helmet', src === 'helmet');
+        syncSourceButtons(alertsBodyEl, src);
+        if (src === 'helmet') loadHelmetAlerts(hAlertsRange);
+      };
+      window.setHelmetAlertsRange = function (range) {
+        hAlertsRange = range;
+        document.querySelectorAll('#helmetAlertsPane .hm-tab').forEach((b) => b.classList.toggle('active', b.dataset.harange === range));
+        loadHelmetAlerts(range);
+      };
+
+      function loadHelmetAlerts(range) {
+        const summaryEl = $('hAlertsSummaryCards');
+        const listEl = $('hAlertsListWrap');
+        const msgEl = $('hAlertsStateMsg');
+        msgEl.style.display = 'block';
+        msgEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading helmet alerts...';
+        summaryEl.innerHTML = '';
+        listEl.innerHTML = '';
+
+        fetchLogs(range).then(({ entries }) => {
+          const counts = { obstacle: 0, gas: 0, hr: 0, spo2: 0 };
+          const rows = [];
+          entries.forEach((e) => {
+            const types = evaluateAlerts(e.p, { hr: hrBad(e.p), spo2: spo2Bad(e.p) });
+            if (types.length) {
+              types.forEach((t) => { counts[t.key]++; });
+              rows.push({ ts: e.ts, types });
+            }
+          });
+          const cards = [
+            { label: 'Total Alert Events', value: String(rows.length) },
+            { label: 'Obstacle', value: String(counts.obstacle) },
+            { label: 'Gas', value: String(counts.gas) },
+            { label: 'Heart Rate', value: String(counts.hr) },
+            { label: 'SpO₂', value: String(counts.spo2) }
+          ];
+          summaryEl.innerHTML = cards.map((c) => `
+            <div class="report-summary-card">
+              <div class="rsc-label">${c.label}</div>
+              <div class="rsc-value">${c.value}</div>
+            </div>`).join('');
+
+          if (!rows.length) {
+            msgEl.style.display = 'block';
+            msgEl.innerHTML = 'এই সময়সীমায় হেলমেটের কোনো অ্যালার্ট পাওয়া যায়নি — সব রিডিং নিরাপদ সীমার মধ্যে ছিল।';
+            return;
+          }
+          msgEl.style.display = 'none';
+          listEl.innerHTML = rows.slice().reverse().map((r) => {
+            const tags = r.types.map((t) => `<span class="alert-type-tag alert-type-${t.key}">${t.label}</span>`).join('');
+            const details = r.types.map((t) => esc(t.detailBn)).join(' &middot; ');
+            const when = new Date(r.ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            return `
+              <div class="alert-log-item">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div>
+                  <div class="alert-log-time">${when}</div>
+                  <div class="alert-log-tags">${tags}</div>
+                  <div class="alert-log-detail">${details}</div>
+                </div>
+              </div>`;
+          }).join('');
+        }).catch((err) => {
+          msgEl.style.display = 'block';
+          msgEl.textContent = 'হেলমেট অ্যালার্ট লোড করতে ব্যর্থ হয়েছে: ' + err.message;
+        });
       }
     })();
