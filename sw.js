@@ -11,7 +11,7 @@
 //      drops entirely, the last-loaded screen still paints instead of a
 //      blank/broken tab. Useful for field workers on intermittent signal.
 
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const SHELL_CACHE = 'vest-command-shell-' + CACHE_VERSION;
 
 // Keep this list to genuinely static, same-origin files only. Do not add
@@ -22,8 +22,6 @@ const SHELL_FILES = [
   './index.html',
   './style.css',
   './app.js',
-  './helmet.js',
-  './helmet.css',
   './logo.png',
   './icon-192.png',
 ];
