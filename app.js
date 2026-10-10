@@ -651,18 +651,12 @@ let audioEnabled = false;
 
       const sysStatusText = document.getElementById('sysStatusText');
       sysStatusText.classList.remove('active');
-      sysStatusText.innerText = 'SYSTEM OFFLINE';
+      sysStatusText.innerText = 'VEST OFFLINE';
       document.getElementById('sysSubText').innerText = 'NO DATA STREAM RECEIVED';
 
       document.getElementById('workerStatus').innerText = 'OFFLINE';
       document.getElementById('workerStatus').style.color = 'var(--red)';
 
-      ['stEsp32', 'stGps', 'stMotion', 'stTemp', 'stNet'].forEach((id) => {
-        const el = document.getElementById(id);
-        el.innerText = 'Disconnected';
-        el.style.color = 'var(--red)';
-      });
-      document.getElementById('rssiVal').innerText = '-- dBm';
 
       document.getElementById('onlineWorkerCount').innerText = '0 / 20';
       document.getElementById('onlineWorkerBar').style.width = '0%';
@@ -767,17 +761,11 @@ let audioEnabled = false;
         sysIcon.innerHTML = '<i class="fa-solid fa-shield-halved"></i>';
 
         document.getElementById('sysStatusText').classList.add('active');
-        document.getElementById('sysStatusText').innerText = 'SYSTEM NORMAL';
+        document.getElementById('sysStatusText').innerText = 'VEST NORMAL';
         document.getElementById('sysSubText').innerText = 'REALTIME STREAMING';
         document.getElementById('workerStatus').innerText = 'ONLINE';
         document.getElementById('workerStatus').style.color = 'var(--green)';
 
-        document.getElementById('stEsp32').innerText = 'Connected'; document.getElementById('stEsp32').style.color = 'var(--green)';
-        document.getElementById('stGps').innerText = 'Connected'; document.getElementById('stGps').style.color = 'var(--green)';
-        document.getElementById('stMotion').innerText = 'Connected'; document.getElementById('stMotion').style.color = 'var(--green)';
-        document.getElementById('stTemp').innerText = 'Connected'; document.getElementById('stTemp').style.color = 'var(--green)';
-        document.getElementById('stNet').innerText = 'Connected'; document.getElementById('stNet').style.color = 'var(--green)';
-        document.getElementById('rssiVal').innerText = '-60 dBm';
 
         document.getElementById('onlineWorkerCount').innerText = '1 / 20';
         document.getElementById('onlineWorkerBar').style.width = '5%';
@@ -2237,7 +2225,7 @@ let audioEnabled = false;
         HR_MIN: 50, HR_MAX: 120, SPO2_MIN: 90
       };
       const PROX_SCALE_CM = 100;          // bar is full at 0 cm, empty at 100 cm
-      const HELMET_STALE_MS = 20000;      // no new data for 20s => offline
+      const HELMET_STALE_MS = 6000;       // same 6s window as the vest => offline
       const HEALTH_CONFIRM = 3;           // abnormal vitals must repeat 3 updates
       const MAX_H_HISTORY = 10;
       const MAX_REPORT_ENTRIES = 20000;
