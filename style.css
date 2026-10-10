@@ -2643,3 +2643,11 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
 .alert-type-gas      { background: rgba(245,158,11,0.18); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); }
 .alert-type-hr       { background: rgba(255,51,102,0.18); color: #ff3366; border: 1px solid rgba(255,51,102,0.4); }
 .alert-type-spo2     { background: rgba(0,242,255,0.15);  color: #00f2ff; border: 1px solid rgba(0,242,255,0.4); }
+
+
+/* Map card now fills the row next to Workers Online (Device Connection card removed) */
+.map-card-large { flex: 4; min-width: 300px; }
+.map-card-large .map-wrapper { height: 380px; }
+@media (max-width: 768px) {
+  .map-card-large .map-wrapper { height: 300px; }
+}
