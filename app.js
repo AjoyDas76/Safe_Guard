@@ -832,16 +832,14 @@ let audioEnabled = false;
 
     // LoRa signal strength (dBm) reported by the receiver in /worker1/signal/rssi
     function setRssi(v) {
-      const el = document.getElementById('rssiVal');
-      if (!el) return;
+      const pill = document.getElementById('signalPill');
+      if (!pill) return;
       const n = Number(v);
-      if (v === undefined || v === null || !isFinite(n)) {
-        el.innerText = '-- dBm';
-        el.style.color = '';
-        return;
-      }
-      el.innerText = Math.round(n) + ' dBm';
-      el.style.color = n >= -90 ? 'var(--green)' : n >= -105 ? 'var(--amber)' : 'var(--red)';
+      const has = !(v === undefined || v === null || !isFinite(n));
+      pill.classList.toggle('connected', has && n >= -90);   // good: green
+      pill.classList.toggle('weak', has && n < -105);        // poor: red
+      pill.innerHTML = '<i class="fa-solid fa-signal" style="font-size: 9px;"></i> SIGNAL ' +
+        (has ? Math.round(n) + ' dBm' : '--');
     }
 
     // Gatekeeper for every Firebase read (both the realtime listener and
