@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SAFEGUARD // REAL-TIME COMMAND CENTER</title>
-  <meta name="description" content="Real-time monitoring dashboard for SafeGuard — live temperature, humidity, pressure, motion, fall detection, SOS, GPS tracking and helmet sensors (heart rate, SpO2, gas, obstacles).">
+  <meta name="description" content="Real-time monitoring dashboard for SafeGuard — live temperature, humidity, pressure, motion, fall detection, SOS and GPS tracking.">
   <meta name="theme-color" content="#050b14">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -27,7 +27,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="helmet.css">
 </head>
 <body>
 
@@ -109,8 +108,6 @@
       <li class="nav-item"><a href="#" onclick="openAlertsModal(event)"><i class="fa-solid fa-triangle-exclamation"></i> Alerts</a></li>
       <li class="nav-item"><a href="#" onclick="openTrackingModal(event)"><i class="fa-solid fa-map-location-dot"></i> Map Tracking</a></li>
       <li class="nav-item"><a href="#" onclick="openReportsModal(event)"><i class="fa-solid fa-chart-column"></i> Reports</a></li>
-      <li class="nav-item"><a href="#" onclick="scrollToHelmet(event)"><i class="fa-solid fa-helmet-safety"></i> Helmet</a></li>
-      <li class="nav-item"><a href="#" onclick="openHelmetReports(event)"><i class="fa-solid fa-file-waveform"></i> Helmet Reports</a></li>
     </ul>
   </aside>
   
@@ -122,6 +119,7 @@
         <i class="fa-solid fa-bars nav-toggle" id="menuBtn" role="button" tabindex="0" aria-label="Toggle navigation menu" aria-expanded="false"></i>
         <span class="cmd-title">SAFEGUARD COMMAND</span>
         <span class="status-badge" id="connPill" role="status" aria-live="polite"><i class="fa-solid fa-circle" style="font-size: 6px;" aria-hidden="true"></i> WAITING</span>
+        <span class="status-badge" id="helmetConnPill" role="status" aria-live="polite"><i class="fa-solid fa-helmet-safety" style="font-size: 9px;" aria-hidden="true"></i> HELMET WAITING</span>
       </div>
       <div class="header-right">
         <button class="btn-action" id="audioBtn" onclick="toggleAudio()" aria-pressed="false" aria-label="Toggle alert sound"><i class="fa-solid fa-volume-xmark" id="audioIcon" aria-hidden="true"></i> Audio: OFF</button>
@@ -142,6 +140,15 @@
         </div>
       </div>
 
+      <div class="card glass-panel system-card">
+        <div class="system-icon" id="hSysIcon"><i class="fa-solid fa-hourglass-start"></i></div>
+        <div class="system-text">
+          <h2 id="hSysStatusText">AWAITING HELMET</h2>
+          <h3 id="hSysSubText">NO DATA STREAM RECEIVED</h3>
+          <p id="hSysNote">Connecting to /helmet1...</p>
+        </div>
+      </div>
+
       <!-- Emergency SOS card removed (unreliable buzzer trigger). The two remaining
            cards below/above now share the full row width via their existing flex values. -->
 
@@ -154,6 +161,10 @@
           <div><span>Shift :</span> 08:00 - 16:00</div>
           <div><span>Vest ID :</span> VEST-001</div>
           <div><span>Sync :</span> <span id="lastSyncTime">--:--:--</span></div>
+          <div><span>Helmet ID :</span> HELMET-001</div>
+          <div><span>Helmet :</span> <b style="color: var(--amber);" id="hInfoStatus">OFFLINE</b></div>
+          <div><span>Helmet Sensors :</span> 5</div>
+          <div><span>Helmet Sync :</span> <span id="hLastSync">--:--:--</span></div>
         </div>
       </div>
     </div>
@@ -216,63 +227,64 @@
       </div>
     </div>
 
-    <!-- HELMET SENSOR METRICS (same design as vest blocks) -->
-    <div class="sensor-grid" id="helmetGrid">
-      <div class="sensor-card-v2 glass-panel">
-        <div class="sensor-body-v2">
-          <div class="sensor-icon-box" style="color: var(--red); filter: drop-shadow(0 0 6px rgba(255,51,102,0.6));"><i class="fa-solid fa-heart-pulse"></i></div>
-          <div class="sensor-info-box">
-            <span class="sensor-title-v2">HEART RATE</span>
-            <div class="sensor-val-v2"><span id="hmHrVal">--</span> <small>bpm</small></div>
-            <span class="sensor-status-v2" id="hmHrStatus">Waiting...</span>
-            <span class="sensor-range-v2">Range: 50 - 120 bpm</span>
+    <!-- HELMET SENSOR METRICS -->
+      <div class="sensor-grid">
+        <div class="sensor-card-v2 glass-panel">
+          <div class="sensor-body-v2">
+            <div class="sensor-icon-box" style="color: var(--red); filter: drop-shadow(0 0 6px rgba(255,51,102,0.6));"><i class="fa-solid fa-heart-pulse"></i></div>
+            <div class="sensor-info-box">
+              <span class="sensor-title-v2">HEART RATE</span>
+              <div class="sensor-val-v2"><span id="hHrVal">--</span> <small>bpm</small></div>
+              <span class="sensor-status-v2" id="hHrStatus">Waiting...</span>
+              <span class="sensor-range-v2">Range: 50 - 120 bpm</span>
+            </div>
           </div>
+          <div class="sparkline-box-v2"><canvas id="hHrSpark"></canvas></div>
         </div>
-        <div class="sparkline-box-v2"><canvas id="hmHrSpark"></canvas></div>
-      </div>
 
-      <div class="sensor-card-v2 glass-panel">
-        <div class="sensor-body-v2">
-          <div class="sensor-icon-box" style="color: var(--cyan); filter: drop-shadow(0 0 6px rgba(0,242,255,0.6));"><i class="fa-solid fa-lungs"></i></div>
-          <div class="sensor-info-box">
-            <span class="sensor-title-v2">SpO&#8322; LEVEL</span>
-            <div class="sensor-val-v2"><span id="hmSpo2Val">--</span> <small>%</small></div>
-            <span class="sensor-status-v2" id="hmSpo2Status">Waiting...</span>
-            <span class="sensor-range-v2">Range: 90 - 100 %</span>
+        <div class="sensor-card-v2 glass-panel">
+          <div class="sensor-body-v2">
+            <div class="sensor-icon-box" style="color: var(--cyan); filter: drop-shadow(0 0 6px rgba(0,242,255,0.6));"><i class="fa-solid fa-lungs"></i></div>
+            <div class="sensor-info-box">
+              <span class="sensor-title-v2">BLOOD OXYGEN (SpO₂)</span>
+              <div class="sensor-val-v2"><span id="hSpo2Val">--</span> <small>%</small></div>
+              <span class="sensor-status-v2" id="hSpo2Status">Waiting...</span>
+              <span class="sensor-range-v2">Safe: 90% and above</span>
+            </div>
           </div>
+          <div class="sparkline-box-v2"><canvas id="hSpo2Spark"></canvas></div>
         </div>
-        <div class="sparkline-box-v2"><canvas id="hmSpo2Spark"></canvas></div>
-      </div>
 
-      <div class="sensor-card-v2 glass-panel">
-        <div class="sensor-body-v2">
-          <div class="sensor-icon-box" style="color: var(--purple); filter: drop-shadow(0 0 6px rgba(168,85,247,0.6));"><i class="fa-solid fa-smog"></i></div>
-          <div class="sensor-info-box">
-            <span class="sensor-title-v2">GAS LEVEL</span>
-            <div class="sensor-val-v2"><span id="hmGasVal">--</span> <small>ADC</small></div>
-            <span class="sensor-status-v2" id="hmGasStatus">Waiting...</span>
-            <span class="sensor-range-v2" id="hmGasRange">Baseline: --</span>
+        <div class="sensor-card-v2 glass-panel">
+          <div class="sensor-body-v2">
+            <div class="sensor-icon-box" style="color: var(--amber); filter: drop-shadow(0 0 6px rgba(245,158,11,0.6));"><i class="fa-solid fa-smog"></i></div>
+            <div class="sensor-info-box">
+              <span class="sensor-title-v2">GAS LEVEL (MQ-2)</span>
+              <div class="sensor-val-v2"><span id="hGasVal">--</span> <small>ADC</small></div>
+              <span class="sensor-status-v2" id="hGasStatus">Waiting...</span>
+              <span class="sensor-range-v2" id="hGasRange">Baseline: --</span>
+            </div>
           </div>
+          <div class="sparkline-box-v2"><canvas id="hGasSpark"></canvas></div>
         </div>
-        <div class="sparkline-box-v2"><canvas id="hmGasSpark"></canvas></div>
-      </div>
 
-      <div class="sensor-card-v2 glass-panel" style="justify-content: flex-start;">
-        <div class="sensor-body-v2">
-          <div class="sensor-icon-box" style="color: var(--yellow); filter: drop-shadow(0 0 6px rgba(234,179,8,0.6));"><i class="fa-solid fa-ruler-horizontal"></i></div>
-          <div class="sensor-info-box">
-            <span class="sensor-title-v2">OBSTACLE</span>
-            <div class="hm-dist-line"><span>Left</span><b id="hmDistL">--</b></div>
-            <div class="hm-dist-line"><span>Front</span><b id="hmDistF">--</b></div>
-            <div class="hm-dist-line"><span>Right</span><b id="hmDistR">--</b></div>
+        <div class="sensor-card-v2 glass-panel" style="justify-content: flex-start;">
+          <div class="sensor-body-v2">
+            <div class="sensor-icon-box" style="color: var(--purple); filter: drop-shadow(0 0 6px rgba(168,85,247,0.6));"><i class="fa-solid fa-road-barrier"></i></div>
+            <div class="sensor-info-box">
+              <span class="sensor-title-v2">OBSTACLE</span>
+              <div class="obst-lines">
+                <div class="obst-line" id="hObstRowL"><span>Left</span><b id="hObstL">--</b></div>
+                <div class="obst-line" id="hObstRowF"><span>Front</span><b id="hObstF">--</b></div>
+                <div class="obst-line" id="hObstRowR"><span>Right</span><b id="hObstR">--</b></div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 8px;">
+            <span class="badge badge-safe" id="hObstBadge" style="width: 100%; text-align: center;">DETECTED OBJECT: --</span>
           </div>
         </div>
-        <div class="hm-obj-row">
-          <span class="sensor-range-v2">Detected Object</span>
-          <span class="badge badge-safe" id="hmObjBadge">--</span>
-        </div>
       </div>
-    </div>
 
     <!-- Live Sensor Charts -->
     <div class="row">
@@ -292,23 +304,21 @@
       </div>
     </div>
 
-    <!-- Live Helmet Charts -->
-    <div class="row">
-      <div class="card glass-panel col-flex-chart neon-card-red">
-        <div class="card-title icon-hm-hr">Live Heart Rate Chart</div>
-        <div class="chart-box"><canvas id="hmHrChart"></canvas></div>
+    <!-- Live helmet charts -->
+      <div class="row">
+        <div class="card glass-panel col-flex-chart neon-card-red">
+          <div class="card-title icon-h-hr">Live Heart Rate Chart</div>
+          <div class="chart-box"><canvas id="hHrChart"></canvas></div>
+        </div>
+        <div class="card glass-panel col-flex-chart">
+          <div class="card-title icon-h-spo2">Live SpO₂ Chart</div>
+          <div class="chart-box"><canvas id="hSpo2Chart"></canvas></div>
+        </div>
+        <div class="card glass-panel col-flex-chart">
+          <div class="card-title icon-h-gas">Live Gas Level Chart</div>
+          <div class="chart-box"><canvas id="hGasChart"></canvas></div>
+        </div>
       </div>
-
-      <div class="card glass-panel col-flex-chart">
-        <div class="card-title icon-hm-spo2">Live SpO&#8322; Level Chart</div>
-        <div class="chart-box"><canvas id="hmSpo2Chart"></canvas></div>
-      </div>
-
-      <div class="card glass-panel col-flex-chart neon-card-purple">
-        <div class="card-title icon-hm-gas">Live Gas Level Chart</div>
-        <div class="chart-box"><canvas id="hmGasChart"></canvas></div>
-      </div>
-    </div>
 
     <!-- Device / Map / Workers -->
     <div class="row">
@@ -320,6 +330,12 @@
           <div class="device-item"><div class="device-name"><i class="fa-solid fa-person-running"></i> MPU6050</div> <span id="stMotion" style="color: var(--amber);">Waiting...</span></div>
           <div class="device-item"><div class="device-name"><i class="fa-solid fa-temperature-high"></i> BME280</div> <span id="stTemp" style="color: var(--amber);">Waiting...</span></div>
           <div class="device-item"><div class="device-name"><i class="fa-solid fa-wifi"></i> Internet</div> <span id="stNet" style="color: var(--amber);">Waiting...</span></div>
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-helmet-safety"></i> Helmet Node</div> <span id="hStNano1" style="color: var(--amber);">Waiting...</span></div>
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-wifi"></i> Helmet ESP-01</div> <span id="hStEsp" style="color: var(--amber);">Waiting...</span></div>
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-heart-pulse"></i> MAX30100</div> <span id="hStPulse" style="color: var(--amber);">Waiting...</span></div>
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-smog"></i> MQ-2 Gas</div> <span id="hStGas" style="color: var(--amber);">Waiting...</span></div>
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-road-barrier"></i> Ultrasonic x3</div> <span id="hStUltra" style="color: var(--amber);">Waiting...</span></div>
+          <div class="device-item"><div class="device-name"><i class="fa-solid fa-clock"></i> Helmet Update</div> <span id="hDataAge" style="color: var(--amber);">--</span></div>
         </div>
         <div class="signal-bar-box"><span>Signal</span><span style="color: var(--amber); font-weight: 700;" id="rssiVal">-- dBm</span></div>
       </div>
@@ -396,6 +412,10 @@
         <button class="close-modal-btn" onclick="closeReportsModal()" aria-label="Close reports"><i class="fa-solid fa-xmark" aria-hidden="true"></i> CLOSE</button>
       </div>
       <div id="reportsBody">
+        <div class="src-switch">
+          <button type="button" class="hm-tab active" data-src="vest" onclick="setReportsSource('vest')"><i class="fa-solid fa-user-shield"></i>VEST</button>
+          <button type="button" class="hm-tab" data-src="helmet" onclick="setReportsSource('helmet')"><i class="fa-solid fa-helmet-safety"></i>HELMET</button>
+        </div>
         <div class="report-range-tabs">
           <button type="button" class="report-tab active" data-range="daily" onclick="setReportRange('daily')">DAILY</button>
           <button type="button" class="report-tab" data-range="weekly" onclick="setReportRange('weekly')">WEEKLY</button>
@@ -420,6 +440,32 @@
         <div id="reportStateMsg" class="report-state-msg" style="display:none;"></div>
 
         <button class="btn-action" id="reportExportBtn" onclick="exportReportData()"><i class="fa-solid fa-download"></i> Export Report (Excel)</button>
+
+        <div id="helmetReportPane">
+          <div class="report-range-tabs">
+            <button type="button" class="hm-tab active" data-hrange="daily" onclick="setHelmetReportRange('daily')">DAILY</button>
+            <button type="button" class="hm-tab" data-hrange="weekly" onclick="setHelmetReportRange('weekly')">WEEKLY</button>
+            <button type="button" class="hm-tab" data-hrange="monthly" onclick="setHelmetReportRange('monthly')">MONTHLY</button>
+          </div>
+          <div id="hReportSummaryCards" class="report-summary-grid"></div>
+          <div id="hReportChartsWrap">
+            <div class="report-chart-wrap">
+              <div class="report-chart-title">Heart Rate &amp; SpO₂ Trend</div>
+              <canvas id="hReportVitalsChart"></canvas>
+            </div>
+            <div class="report-chart-wrap">
+              <div class="report-chart-title">Gas Level</div>
+              <canvas id="hReportGasChart"></canvas>
+            </div>
+            <div class="report-chart-wrap">
+              <div class="report-chart-title">Obstacle, Gas &amp; Vitals Alerts</div>
+              <canvas id="hReportAlertChart"></canvas>
+            </div>
+          </div>
+          <div id="hReportConnectivityWrap" class="report-connectivity-wrap"></div>
+          <div id="hReportStateMsg" class="report-state-msg" style="display:none;"></div>
+          <button class="btn-action" id="hReportExportBtn" onclick="exportHelmetReportData()"><i class="fa-solid fa-download"></i> Export Helmet Report (Excel)</button>
+        </div>
       </div>
     </div>
   </div>
@@ -450,6 +496,10 @@
         <button class="close-modal-btn" onclick="closeAlertsModal()" aria-label="Close alerts view"><i class="fa-solid fa-xmark" aria-hidden="true"></i> CLOSE</button>
       </div>
       <div id="alertsBody">
+        <div class="src-switch">
+          <button type="button" class="hm-tab active" data-src="vest" onclick="setAlertsSource('vest')"><i class="fa-solid fa-user-shield"></i>VEST</button>
+          <button type="button" class="hm-tab" data-src="helmet" onclick="setAlertsSource('helmet')"><i class="fa-solid fa-helmet-safety"></i>HELMET</button>
+        </div>
         <div class="report-range-tabs">
           <button type="button" class="report-tab active" data-arange="daily" onclick="setAlertsRange('daily')">DAILY</button>
           <button type="button" class="report-tab" data-arange="weekly" onclick="setAlertsRange('weekly')">WEEKLY</button>
@@ -461,47 +511,21 @@
         <div id="alertsListWrap" class="alert-log-list"></div>
 
         <div id="alertsStateMsg" class="report-state-msg" style="display:none;"></div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Helmet Reports Modal -->
-  <div class="map-modal" id="hmReportsModal" role="dialog" aria-modal="true" aria-label="Helmet reports">
-    <div class="map-modal-content hm-modal-content">
-      <div class="map-modal-header">
-        <h3><i class="fa-solid fa-helmet-safety"></i> HELMET REPORTS</h3>
-        <button class="close-modal-btn" onclick="closeHelmetReports()" aria-label="Close helmet reports"><i class="fa-solid fa-xmark" aria-hidden="true"></i> CLOSE</button>
-      </div>
-      <div id="hmReportsBody">
-        <div class="report-range-tabs">
-          <button type="button" class="report-tab active" data-hrange="daily" onclick="setHelmetRange('daily')">DAILY</button>
-          <button type="button" class="report-tab" data-hrange="weekly" onclick="setHelmetRange('weekly')">WEEKLY</button>
-          <button type="button" class="report-tab" data-hrange="monthly" onclick="setHelmetRange('monthly')">MONTHLY</button>
-        </div>
-
-        <div id="hmRepSummary" class="report-summary-grid"></div>
-
-        <div id="hmRepCharts">
-          <div class="report-chart-wrap">
-            <div class="report-chart-title">Heart Rate &amp; SpO&#8322; Trend</div>
-            <canvas id="hmRepVitals"></canvas>
+        <div id="helmetAlertsPane">
+          <div class="report-range-tabs">
+            <button type="button" class="hm-tab active" data-harange="daily" onclick="setHelmetAlertsRange('daily')">DAILY</button>
+            <button type="button" class="hm-tab" data-harange="weekly" onclick="setHelmetAlertsRange('weekly')">WEEKLY</button>
+            <button type="button" class="hm-tab" data-harange="monthly" onclick="setHelmetAlertsRange('monthly')">MONTHLY</button>
           </div>
-          <div class="report-chart-wrap">
-            <div class="report-chart-title">Gas Level Trend</div>
-            <canvas id="hmRepGas"></canvas>
-          </div>
+          <div id="hAlertsSummaryCards" class="report-summary-grid"></div>
+          <div id="hAlertsListWrap" class="alert-log-list"></div>
+          <div id="hAlertsStateMsg" class="report-state-msg" style="display:none;"></div>
         </div>
-
-        <div id="hmRepAlerts" class="alert-log-list"></div>
-        <div id="hmRepConn" class="report-connectivity-wrap" style="margin-top:16px;"></div>
-        <div id="hmRepState" class="report-state-msg" style="display:none;"></div>
-
-        <button class="btn-action" id="hmRepExportBtn" onclick="exportHelmetReport()"><i class="fa-solid fa-download"></i> Export Helmet Report (Excel)</button>
       </div>
     </div>
   </div>
 
   <script src="app.js" defer></script>
-  <script src="helmet.js" defer></script>
 </body>
 </html>
