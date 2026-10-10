@@ -43,6 +43,7 @@ let audioEnabled = false;
 
     const MAX_HISTORY = 10; // keeps up to the last 10 readings in memory
     let dataHistory = [];
+    let helmetHistory = []; // same rolling buffer, for the helmet (/helmet1/live)
 
     // Recursively flattens a nested object into a flat { "a > b": value } map,
     // e.g. { environment: { temperature: 30 } } -> { "environment > temperature": 30 }
@@ -75,13 +76,37 @@ let audioEnabled = false;
       if (dataHistory.length > MAX_HISTORY) dataHistory.shift();
     }
 
+    // Called from the helmet module on every new helmet reading.
+    function recordHelmetSnapshot(data) {
+      const flat = {};
+      flattenToObject(data, '', flat);
+      const last = helmetHistory[helmetHistory.length - 1];
+      if (last && JSON.stringify(last.fields) === JSON.stringify(flat)) return;
+      helmetHistory.push({ timestamp: new Date().toLocaleString(), fields: flat });
+      if (helmetHistory.length > MAX_HISTORY) helmetHistory.shift();
+    }
+
+    // Builds [header, ...rows] for a history buffer's last `count` entries.
+    function buildHistoryRows(history, count) {
+      const selected = history.slice(-count);
+      const labels = [];
+      selected.forEach((entry) => {
+        Object.keys(entry.fields).forEach((l) => { if (!labels.includes(l)) labels.push(l); });
+      });
+      return {
+        labels,
+        count: selected.length,
+        rows: [['Timestamp', ...labels], ...selected.map((e) => [e.timestamp, ...labels.map((l) => (e.fields[l] !== undefined ? e.fields[l] : ''))])]
+      };
+    }
+
     function exportWorkerData() {
-      if (dataHistory.length === 0) {
+      if (dataHistory.length === 0 && helmetHistory.length === 0) {
         alert('এক্সপোর্ট করার জন্য এখনো কোনো ডাটা রেকর্ড হয়নি।\nপেজটি একটু সময় ধরে খোলা রাখুন যাতে সাম্প্রতিক রিডিং জমা হতে পারে, তারপর আবার চেষ্টা করুন।');
         return;
       }
 
-      const maxAvailable = dataHistory.length;
+      const maxAvailable = Math.max(dataHistory.length, helmetHistory.length);
       const defaultCount = Math.min(10, maxAvailable);
       const input = prompt(
         `সাম্প্রতিক কতগুলো রিডিং এক্সপোর্ট করতে চান? (এখন পর্যন্ত সর্বোচ্চ ${maxAvailable}টি জমা আছে)`,
@@ -99,40 +124,28 @@ let audioEnabled = false;
       exportBtn.disabled = true;
 
       try {
-        const selectedEntries = dataHistory.slice(-count);
-
-        // Union of all field labels across selected entries, in first-seen order
-        const fieldLabels = [];
-        selectedEntries.forEach((entry) => {
-          Object.keys(entry.fields).forEach((label) => {
-            if (!fieldLabels.includes(label)) fieldLabels.push(label);
-          });
-        });
-
-        const header = ['Timestamp', ...fieldLabels];
-        const dataRows = selectedEntries.map((entry) => [
-          entry.timestamp,
-          ...fieldLabels.map((label) => (entry.fields[label] !== undefined ? entry.fields[label] : ''))
-        ]);
-
-        const sheetData = [
-          ['Worker ID', 'SV-001'],
-          ['Vest ID', 'VEST-001'],
-          ['Exported At', new Date().toLocaleString()],
-          ['Records Exported', String(selectedEntries.length)],
-          [],
-          header,
-          ...dataRows
-        ];
-
-        const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-        worksheet['!cols'] = [{ wch: 20 }, ...fieldLabels.map(() => ({ wch: 22 }))];
-
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Worker1 History');
+        const exportedAt = new Date().toLocaleString();
+
+        const addSheet = (history, name, meta) => {
+          if (history.length === 0) return;
+          const b = buildHistoryRows(history, count);
+          const ws = XLSX.utils.aoa_to_sheet([
+            ...meta,
+            ['Exported At', exportedAt],
+            ['Records Exported', String(b.count)],
+            [],
+            ...b.rows
+          ]);
+          ws['!cols'] = [{ wch: 20 }, ...b.labels.map(() => ({ wch: 22 }))];
+          XLSX.utils.book_append_sheet(workbook, ws, name);
+        };
+
+        addSheet(dataHistory, 'Worker1 History', [['Worker ID', 'SV-001'], ['Vest ID', 'VEST-001']]);
+        addSheet(helmetHistory, 'Helmet History', [['Worker ID', 'SV-001'], ['Helmet ID', 'HELMET-001']]);
 
         const dateStamp = new Date().toISOString().replace(/[:.]/g, '-');
-        XLSX.writeFile(workbook, `worker1_history_${dateStamp}.xlsx`);
+        XLSX.writeFile(workbook, `safeguard_history_${dateStamp}.xlsx`);
       } catch (err) {
         console.error('[Export] Excel generation FAILED:', err.message);
         alert('এক্সপোর্ট তৈরি করতে ব্যর্থ হয়েছে:\n' + err.message);
@@ -2466,6 +2479,7 @@ let audioEnabled = false;
       function processHelmet(d) {
         if (!d || typeof d !== 'object') return;
         if (!hConnected) setConnectedUi();
+        if (typeof recordHelmetSnapshot === 'function') recordHelmetSnapshot(d);
 
         const p = normalize(d);
         const timeStr = new Date().toLocaleTimeString();
