@@ -2455,13 +2455,12 @@ let audioEnabled = false;
         setStatus('hSpo2Status', 'No Data', 'var(--text-muted)');
         setText('hGasVal', '--');
         setStatus('hGasStatus', 'No Data', 'var(--text-muted)');
-        setText('hObstVal', '--');
-        setText('hObstUnit', '');
-        setStatus('hObstStatus', 'No Data', 'var(--text-muted)');
+        const obOff = $('hObstBadge');
+        obOff.className = 'badge badge-safe';
+        obOff.textContent = 'DETECTED OBJECT: --';
         SIDES.forEach((s) => {
-          const b = $('hBadge' + s.key);
-          b.className = 'badge badge-safe';
-          b.textContent = s.key + ' · --';
+          setText('hObst' + s.key, '--');
+          $('hObstRow' + s.key).classList.remove('hit');
           $('hProxFill' + s.key).style.width = '0%';
           $('hProx' + s.key).classList.remove('hit');
           setText('hProxVal' + s.key, '--');
@@ -2575,22 +2574,17 @@ let audioEnabled = false;
         pushPoints(gasChart, timeStr, [p.gasLevel, p.gasBase > 0 ? p.gasBase + TH.GAS_MARGIN : null]);
 
         // --- obstacle / proximity ---
-        const hitSides = SIDES.filter((s) => p.obst[s.key]);
-        const inRange = SIDES.map((s) => p.dist[s.key]).filter((v) => v < TH.NO_ECHO);
-        const nearest = inRange.length ? Math.min.apply(null, inRange) : null;
-        if (nearest !== null) { setText('hObstVal', String(nearest)); setText('hObstUnit', 'cm'); }
-        else { setText('hObstVal', 'CLEAR'); setText('hObstUnit', ''); }
-        if (hitSides.length) setStatus('hObstStatus', 'OBSTACLE — ' + hitSides.map((s) => s.name).join(', '), 'var(--red)');
-        else if (p.obstFlag) setStatus('hObstStatus', 'OBSTACLE', 'var(--red)');
-        else setStatus('hObstStatus', 'Path Clear', 'var(--green)');
+        const detected = anyObst(p);
+        const ob = $('hObstBadge');
+        ob.className = 'badge ' + (detected ? 'badge-alert' : 'badge-safe');
+        ob.textContent = 'DETECTED OBJECT: ' + (detected ? 'ALERT' : 'SAFE');
 
         SIDES.forEach((s) => {
           const d1 = p.dist[s.key];
           const clear = d1 >= TH.NO_ECHO;
           const hit = p.obst[s.key];
-          const b = $('hBadge' + s.key);
-          b.className = 'badge ' + (hit ? 'badge-alert' : 'badge-safe');
-          b.textContent = s.key + ' · ' + (clear ? 'CLEAR' : d1 + ' cm');
+          setText('hObst' + s.key, d1 + ' cm');
+          $('hObstRow' + s.key).classList.toggle('hit', hit);
           const pct = clear ? 0 : Math.max(0, Math.min(100, (1 - d1 / PROX_SCALE_CM) * 100));
           $('hProxFill' + s.key).style.width = pct + '%';
           $('hProx' + s.key).classList.toggle('hit', hit);
