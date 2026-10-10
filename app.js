@@ -1266,7 +1266,7 @@ let audioEnabled = false;
     // =========================================================
     (function initVisualValueFeedback() {
       // 1) Flash a value span briefly whenever its text actually changes.
-      const flashIds = ['tempVal', 'humVal', 'presVal', 'motionStateVal'];
+      const flashIds = ['tempVal', 'humVal', 'presVal', 'motionStateVal', 'hHrVal', 'hSpo2Val', 'hGasVal'];
       flashIds.forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -1288,6 +1288,7 @@ let audioEnabled = false;
       // the moment a real reading/status arrives.
       const waitingWatchIds = [
         'tempVal', 'humVal', 'presVal', 'motionStateVal',
+        'hHrVal', 'hSpo2Val', 'hGasVal',
         'stEsp32', 'stGps', 'stMotion', 'stTemp', 'stNet'
       ];
       const PLACEHOLDER_TEXTS = new Set(['--', 'Waiting...']);
