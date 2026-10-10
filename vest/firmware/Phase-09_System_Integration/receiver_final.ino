@@ -223,12 +223,18 @@ bool firebaseSend(const char *path, const char *method, const String &payload) {
   return false;
 }
 
-// Live snapshot: newest reading only, never retried (a fresher one is always
+// Live snapshot (PATCH - see note below): newest reading only, never retried (a fresher one is always
 // a second away, and replaying stale "live" data is worse than skipping it).
 void pushLiveSnapshot() {
   LiveSnapshot snap;
   if (xQueueReceive(liveQueue, &snap, 0) != pdTRUE) return;
-  firebaseSend(LIVE_PATH, "PUT", String(snap.json));
+  // IMPORTANT: PATCH, not PUT. LIVE_PATH ("worker1") is also the parent of
+  // /worker1/logs. A PUT replaces the ENTIRE node, so every live update
+  // (once per second) used to delete all the history logs under it - which is
+  // why /worker1/logs never showed up in Firebase. PATCH only overwrites the
+  // children named in the JSON (environment, status, alerts, gps, battery)
+  // and leaves /worker1/logs untouched.
+  firebaseSend(LIVE_PATH, "PATCH", String(snap.json));
 }
 
 // History: many readings merged into one PATCH. On failure the whole batch
