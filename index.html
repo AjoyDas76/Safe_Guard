@@ -215,6 +215,65 @@
       </div>
     </div>
 
+    <!-- HELMET SENSOR METRICS -->
+      <div class="sensor-grid">
+        <div class="sensor-card-v2 glass-panel">
+          <div class="sensor-body-v2">
+            <div class="sensor-icon-box" style="color: var(--red); filter: drop-shadow(0 0 6px rgba(255,51,102,0.6));"><i class="fa-solid fa-heart-pulse"></i></div>
+            <div class="sensor-info-box">
+              <span class="sensor-title-v2">HEART RATE</span>
+              <div class="sensor-val-v2"><span id="hHrVal">--</span> <small>bpm</small></div>
+              <span class="sensor-status-v2" id="hHrStatus">Waiting...</span>
+              <span class="sensor-range-v2">Range: 50 - 120 bpm</span>
+            </div>
+          </div>
+          <div class="sparkline-box-v2"><canvas id="hHrSpark"></canvas></div>
+        </div>
+
+        <div class="sensor-card-v2 glass-panel">
+          <div class="sensor-body-v2">
+            <div class="sensor-icon-box" style="color: var(--cyan); filter: drop-shadow(0 0 6px rgba(0,242,255,0.6));"><i class="fa-solid fa-lungs"></i></div>
+            <div class="sensor-info-box">
+              <span class="sensor-title-v2">BLOOD OXYGEN (SpO₂)</span>
+              <div class="sensor-val-v2"><span id="hSpo2Val">--</span> <small>%</small></div>
+              <span class="sensor-status-v2" id="hSpo2Status">Waiting...</span>
+              <span class="sensor-range-v2">Safe: 90% and above</span>
+            </div>
+          </div>
+          <div class="sparkline-box-v2"><canvas id="hSpo2Spark"></canvas></div>
+        </div>
+
+        <div class="sensor-card-v2 glass-panel">
+          <div class="sensor-body-v2">
+            <div class="sensor-icon-box" style="color: var(--amber); filter: drop-shadow(0 0 6px rgba(245,158,11,0.6));"><i class="fa-solid fa-smog"></i></div>
+            <div class="sensor-info-box">
+              <span class="sensor-title-v2">GAS LEVEL (MQ-2)</span>
+              <div class="sensor-val-v2"><span id="hGasVal">--</span> <small>ADC</small></div>
+              <span class="sensor-status-v2" id="hGasStatus">Waiting...</span>
+              <span class="sensor-range-v2" id="hGasRange">Baseline: --</span>
+            </div>
+          </div>
+          <div class="sparkline-box-v2"><canvas id="hGasSpark"></canvas></div>
+        </div>
+
+        <div class="sensor-card-v2 glass-panel" style="justify-content: flex-start;">
+          <div class="sensor-body-v2">
+            <div class="sensor-icon-box" style="color: var(--purple); filter: drop-shadow(0 0 6px rgba(168,85,247,0.6));"><i class="fa-solid fa-road-barrier"></i></div>
+            <div class="sensor-info-box">
+              <span class="sensor-title-v2">OBSTACLE</span>
+              <div class="obst-lines">
+                <div class="obst-line" id="hObstRowL"><span>Left</span><b id="hObstL">--</b></div>
+                <div class="obst-line" id="hObstRowF"><span>Front</span><b id="hObstF">--</b></div>
+                <div class="obst-line" id="hObstRowR"><span>Right</span><b id="hObstR">--</b></div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 8px;">
+            <span class="badge badge-safe" id="hObstBadge" style="width: 100%; text-align: center;">DETECTED OBJECT: --</span>
+          </div>
+        </div>
+      </div>
+
     <!-- Live Sensor Charts -->
     <div class="row">
       <div class="card glass-panel col-flex-chart neon-card-red">
@@ -232,6 +291,22 @@
         <div class="chart-box"><canvas id="presChart"></canvas></div>
       </div>
     </div>
+
+    <!-- Live helmet charts -->
+      <div class="row">
+        <div class="card glass-panel col-flex-chart neon-card-red">
+          <div class="card-title icon-h-hr">Live Heart Rate Chart</div>
+          <div class="chart-box"><canvas id="hHrChart"></canvas></div>
+        </div>
+        <div class="card glass-panel col-flex-chart">
+          <div class="card-title icon-h-spo2">Live SpO₂ Chart</div>
+          <div class="chart-box"><canvas id="hSpo2Chart"></canvas></div>
+        </div>
+        <div class="card glass-panel col-flex-chart">
+          <div class="card-title icon-h-gas">Live Gas Level Chart</div>
+          <div class="chart-box"><canvas id="hGasChart"></canvas></div>
+        </div>
+      </div>
 
     <!-- Device / Map / Workers -->
     <div class="row">
@@ -322,81 +397,6 @@
             <div><span>Sensors :</span> 5</div>
             <div><span>Sync :</span> <span id="hLastSync">--:--:--</span></div>
           </div>
-        </div>
-      </div>
-
-      <!-- HELMET SENSOR METRICS -->
-      <div class="sensor-grid">
-        <div class="sensor-card-v2 glass-panel">
-          <div class="sensor-body-v2">
-            <div class="sensor-icon-box" style="color: var(--red); filter: drop-shadow(0 0 6px rgba(255,51,102,0.6));"><i class="fa-solid fa-heart-pulse"></i></div>
-            <div class="sensor-info-box">
-              <span class="sensor-title-v2">HEART RATE</span>
-              <div class="sensor-val-v2"><span id="hHrVal">--</span> <small>bpm</small></div>
-              <span class="sensor-status-v2" id="hHrStatus">Waiting...</span>
-              <span class="sensor-range-v2">Range: 50 - 120 bpm</span>
-            </div>
-          </div>
-          <div class="sparkline-box-v2"><canvas id="hHrSpark"></canvas></div>
-        </div>
-
-        <div class="sensor-card-v2 glass-panel">
-          <div class="sensor-body-v2">
-            <div class="sensor-icon-box" style="color: var(--cyan); filter: drop-shadow(0 0 6px rgba(0,242,255,0.6));"><i class="fa-solid fa-lungs"></i></div>
-            <div class="sensor-info-box">
-              <span class="sensor-title-v2">BLOOD OXYGEN (SpO₂)</span>
-              <div class="sensor-val-v2"><span id="hSpo2Val">--</span> <small>%</small></div>
-              <span class="sensor-status-v2" id="hSpo2Status">Waiting...</span>
-              <span class="sensor-range-v2">Safe: 90% and above</span>
-            </div>
-          </div>
-          <div class="sparkline-box-v2"><canvas id="hSpo2Spark"></canvas></div>
-        </div>
-
-        <div class="sensor-card-v2 glass-panel">
-          <div class="sensor-body-v2">
-            <div class="sensor-icon-box" style="color: var(--amber); filter: drop-shadow(0 0 6px rgba(245,158,11,0.6));"><i class="fa-solid fa-smog"></i></div>
-            <div class="sensor-info-box">
-              <span class="sensor-title-v2">GAS LEVEL (MQ-2)</span>
-              <div class="sensor-val-v2"><span id="hGasVal">--</span> <small>ADC</small></div>
-              <span class="sensor-status-v2" id="hGasStatus">Waiting...</span>
-              <span class="sensor-range-v2" id="hGasRange">Baseline: --</span>
-            </div>
-          </div>
-          <div class="sparkline-box-v2"><canvas id="hGasSpark"></canvas></div>
-        </div>
-
-        <div class="sensor-card-v2 glass-panel" style="justify-content: flex-start;">
-          <div class="sensor-body-v2">
-            <div class="sensor-icon-box" style="color: var(--purple); filter: drop-shadow(0 0 6px rgba(168,85,247,0.6));"><i class="fa-solid fa-road-barrier"></i></div>
-            <div class="sensor-info-box">
-              <span class="sensor-title-v2">OBSTACLE (NEAREST)</span>
-              <div class="sensor-val-v2"><span id="hObstVal">--</span> <small id="hObstUnit">cm</small></div>
-              <span class="sensor-status-v2" id="hObstStatus">Waiting...</span>
-              <span class="sensor-range-v2">Alert below 50 cm</span>
-            </div>
-          </div>
-          <div style="display: flex; gap: 6px; margin-top: 12px;">
-            <span class="badge badge-safe" id="hBadgeL" style="width: 100%; text-align: center;">L · --</span>
-            <span class="badge badge-safe" id="hBadgeF" style="width: 100%; text-align: center;">F · --</span>
-            <span class="badge badge-safe" id="hBadgeR" style="width: 100%; text-align: center;">R · --</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Live helmet charts -->
-      <div class="row">
-        <div class="card glass-panel col-flex-chart neon-card-red">
-          <div class="card-title icon-h-hr">Live Heart Rate Chart</div>
-          <div class="chart-box"><canvas id="hHrChart"></canvas></div>
-        </div>
-        <div class="card glass-panel col-flex-chart">
-          <div class="card-title icon-h-spo2">Live SpO₂ Chart</div>
-          <div class="chart-box"><canvas id="hSpo2Chart"></canvas></div>
-        </div>
-        <div class="card glass-panel col-flex-chart">
-          <div class="card-title icon-h-gas">Live Gas Level Chart</div>
-          <div class="chart-box"><canvas id="hGasChart"></canvas></div>
         </div>
       </div>
 
