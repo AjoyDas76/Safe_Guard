@@ -2,13 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>SAFEGUARD - REAL TIME COMMAND CENTER</title>
+  <meta name="viewport" id="viewportMeta" content="width=1280, initial-scale=0.3, minimum-scale=0.2, maximum-scale=5, user-scalable=yes">
+  <script>
+    // Always render the desktop layout (1280px wide). On phones/tablets the page
+    // is scaled down to fit the screen; the user can pinch-zoom to read details.
+    (function () {
+      var DESKTOP_W = 1280;
+      var m = document.getElementById('viewportMeta');
+      var sw = Math.min(screen.width, screen.height) || window.innerWidth;
+      if (sw >= 1024) { m.setAttribute('content', 'width=device-width, initial-scale=1.0'); return; }
+      function apply() {
+        var w = Math.min(screen.width, window.innerWidth || screen.width) || screen.width;
+        w = Math.max(w, Math.min(screen.width, screen.height));
+        var scale = Math.min(1, w / DESKTOP_W).toFixed(3);
+        m.setAttribute('content', 'width=' + DESKTOP_W + ', initial-scale=' + scale + ', minimum-scale=' + scale + ', maximum-scale=5, user-scalable=yes');
+      }
+      apply();
+      window.addEventListener('orientationchange', function () { setTimeout(apply, 300); });
+    })();
+  </script>
+  <title>SAFEGUARD // REAL-TIME COMMAND CENTER</title>
   <meta name="description" content="Real-time monitoring dashboard for SafeGuard — live temperature, humidity, pressure, motion, fall detection, SOS and GPS tracking.">
   <meta name="theme-color" content="#050b14">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="icon" type="image/png" href="logo.png">
   
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -103,8 +121,6 @@
     </div>
     <ul class="nav-menu">
       <li class="nav-item active"><a href="#"><i class="fa-solid fa-house"></i> Dashboard</a></li>
-      <li class="nav-item"><a href="#"><i class="fa-solid fa-tower-broadcast"></i> Live Monitoring</a></li>
-      <li class="nav-item"><a href="#"><i class="fa-solid fa-users"></i> Workers</a></li>
       <li class="nav-item"><a href="#" onclick="openAlertsModal(event)"><i class="fa-solid fa-triangle-exclamation"></i> Alerts</a></li>
       <li class="nav-item"><a href="#" onclick="openTrackingModal(event)"><i class="fa-solid fa-map-location-dot"></i> Map Tracking</a></li>
       <li class="nav-item"><a href="#" onclick="openReportsModal(event)"><i class="fa-solid fa-chart-column"></i> Reports</a></li>
@@ -228,7 +244,7 @@
 
     <!-- HELMET SENSOR METRICS -->
       <div class="sensor-grid">
-        <div class="sensor-card-v2 glass-panel">
+        <div class="sensor-card-v2 glass-panel helmet-box">
           <div class="sensor-body-v2">
             <div class="sensor-icon-box" style="color: var(--red); filter: drop-shadow(0 0 6px rgba(255,51,102,0.6));"><i class="fa-solid fa-heart-pulse"></i></div>
             <div class="sensor-info-box">
@@ -241,7 +257,7 @@
           <div class="sparkline-box-v2"><canvas id="hHrSpark"></canvas></div>
         </div>
 
-        <div class="sensor-card-v2 glass-panel">
+        <div class="sensor-card-v2 glass-panel helmet-box">
           <div class="sensor-body-v2">
             <div class="sensor-icon-box" style="color: var(--cyan); filter: drop-shadow(0 0 6px rgba(0,242,255,0.6));"><i class="fa-solid fa-lungs"></i></div>
             <div class="sensor-info-box">
@@ -254,9 +270,9 @@
           <div class="sparkline-box-v2"><canvas id="hSpo2Spark"></canvas></div>
         </div>
 
-        <div class="sensor-card-v2 glass-panel">
+        <div class="sensor-card-v2 glass-panel helmet-box">
           <div class="sensor-body-v2">
-            <div class="sensor-icon-box" style="color: var(--amber); filter: drop-shadow(0 0 6px rgba(245,158,11,0.6));"><i class="fa-solid fa-smog"></i></div>
+            <div class="sensor-icon-box" style="color: var(--purple); filter: drop-shadow(0 0 6px rgba(168,85,247,0.6));"><i class="fa-solid fa-smog"></i></div>
             <div class="sensor-info-box">
               <span class="sensor-title-v2">GAS LEVEL (MQ-2)</span>
               <div class="sensor-val-v2"><span id="hGasVal">--</span> <small>ADC</small></div>
@@ -267,9 +283,9 @@
           <div class="sparkline-box-v2"><canvas id="hGasSpark"></canvas></div>
         </div>
 
-        <div class="sensor-card-v2 glass-panel" style="justify-content: flex-start;">
+        <div class="sensor-card-v2 glass-panel helmet-box" style="justify-content: flex-start;">
           <div class="sensor-body-v2">
-            <div class="sensor-icon-box" style="color: var(--purple); filter: drop-shadow(0 0 6px rgba(168,85,247,0.6));"><i class="fa-solid fa-road-barrier"></i></div>
+            <div class="sensor-icon-box" style="color: var(--amber); filter: drop-shadow(0 0 6px rgba(245,158,11,0.6));"><i class="fa-solid fa-road-barrier"></i></div>
             <div class="sensor-info-box">
               <span class="sensor-title-v2">OBSTACLE</span>
               <div class="obst-lines">
@@ -305,15 +321,15 @@
 
     <!-- Live helmet charts -->
       <div class="row">
-        <div class="card glass-panel col-flex-chart neon-card-red">
+        <div class="card glass-panel col-flex-chart neon-card-red helmet-box">
           <div class="card-title icon-h-hr">Live Heart Rate Chart</div>
           <div class="chart-box"><canvas id="hHrChart"></canvas></div>
         </div>
-        <div class="card glass-panel col-flex-chart">
+        <div class="card glass-panel col-flex-chart helmet-box">
           <div class="card-title icon-h-spo2">Live SpO₂ Chart</div>
           <div class="chart-box"><canvas id="hSpo2Chart"></canvas></div>
         </div>
-        <div class="card glass-panel col-flex-chart">
+        <div class="card glass-panel col-flex-chart neon-card-purple helmet-box">
           <div class="card-title icon-h-gas">Live Gas Level Chart</div>
           <div class="chart-box"><canvas id="hGasChart"></canvas></div>
         </div>
