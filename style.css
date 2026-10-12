@@ -2607,7 +2607,7 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
 /* chart title icons */
 .card-title.icon-h-hr::before   { content: "\f21e"; color: var(--red);   font-size: 15px; }
 .card-title.icon-h-spo2::before { content: "\f604"; color: var(--cyan);  font-size: 15px; }
-.card-title.icon-h-gas::before  { content: "\f75f"; color: var(--amber); font-size: 15px; }
+.card-title.icon-h-gas::before  { content: "\f75f"; color: var(--purple); font-size: 15px; }
 
 /* Obstacle card: Left / Front / Right values */
 .obst-lines { display: flex; flex-direction: column; margin-top: 3px; gap: 1px; }
@@ -2655,3 +2655,153 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
 /* Signal pill in the header: same shape as the Helmet pill; red when the link is poor */
 .status-badge.weak { color: var(--red); background: rgba(255, 51, 102, 0.15); border-color: rgba(255, 51, 102, 0.4); }
 .status-badge.weak i { color: var(--red); }
+
+/* ============================================================
+   HELMET NEON STATE GLOW
+   - Helmet OFFLINE / waiting  -> steady YELLOW neon
+   - Helmet REALTIME STREAMING -> steady RED neon
+   Driven purely by the 'active' class the helmet JS already toggles
+   on #hSysIcon (setConnectedUi adds it, goOffline removes it).
+   Applies ONLY to the main helmet status card (AWAITING / HELMET OFFLINE /
+   REALTIME STREAMING).
+   ============================================================ */
+.system-card:has(#hSysIcon:not(.active)) {
+  border-color: var(--yellow);
+  box-shadow: 0 0 0 1px rgba(234,179,8,.35), 0 0 24px 4px rgba(234,179,8,.28), 0 0 50px 10px rgba(234,179,8,.1);
+}
+.system-card:has(#hSysIcon.active) {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px rgba(255,51,102,.35), 0 0 24px 4px rgba(255,51,102,.28), 0 0 50px 10px rgba(255,51,102,.1);
+}
+
+/* Helmet hover glows — Gas and Obstacle colours exchanged:
+   GAS LEVEL (MQ-2) = purple, OBSTACLE = amber. */
+.sensor-grid .helmet-box:nth-child(3):hover { /* Gas — purple */
+  border-color: var(--purple);
+  box-shadow: 0 0 0 1px rgba(168,85,247,.4), 0 0 22px 3px rgba(168,85,247,.35), 0 0 46px 8px rgba(168,85,247,.12);
+}
+.sensor-grid .helmet-box:nth-child(4):hover { /* Obstacle — amber */
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px rgba(245,158,11,.4), 0 0 22px 3px rgba(245,158,11,.35), 0 0 46px 8px rgba(245,158,11,.12);
+}
+
+
+/* ============================================================
+   SIDE PANELS — Alerts / Map Tracking / Reports (desktop)
+   The sidebar stays visible and the panel fills the area to its
+   RIGHT. JS (initSidebarNavigation) toggles body.side-panel-open
+   and sets --side-w to the sidebar's real width.
+   Phones (<=768px) keep the original full-screen modal.
+   ============================================================ */
+@media (min-width: 769px) {
+  body.side-panel-open aside#sidebar {
+    left: 0;
+    z-index: 100001;               /* above the modal layer (99999) */
+  }
+  body.side-panel-open #alertsModal,
+  body.side-panel-open #trackingModal,
+  body.side-panel-open #reportsModal {
+    left: var(--side-w, 258px);
+    width: calc(100vw - var(--side-w, 258px));
+    height: 100vh;
+    padding: 14px;
+    background: #050b14;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  body.side-panel-open #alertsModal .map-modal-content,
+  body.side-panel-open #trackingModal .map-modal-content,
+  body.side-panel-open #reportsModal .map-modal-content {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    border-radius: 14px;
+  }
+}
+
+/* ============================================================
+   LIGHT THEME — UNIFIED BOXES + DARKER, BOLDER TEXT
+   1. Every box now uses the same soft blue frosted-glass fill as the
+      top status / worker boxes (sensor cards, live charts, map,
+      workers online, history, alerts).
+   2. Text is darker and heavier so it reads clearly on light glass.
+   All rules are scoped to body.light-theme — dark theme untouched.
+   ============================================================ */
+body.light-theme {
+  --text-main: #020b16;
+  --text-muted: #0b1d33;
+  --box-fill: linear-gradient(110deg, rgba(0,119,255,.10), rgba(214,224,238,.90));
+}
+
+/* 1 — same fill as the top boxes */
+body.light-theme .sensor-grid > .sensor-card-v2.glass-panel:nth-child(n),
+body.light-theme .card.glass-panel:not(.system-card):not(.worker-info-card):not(.alert-card) {
+  background: var(--box-fill);
+}
+body.light-theme .card.glass-panel.alert-card {
+  background: linear-gradient(110deg, rgba(255,51,102,.09), rgba(214,224,238,.90));
+}
+body.light-theme .map-wrapper,
+body.light-theme .table-container {
+  background: rgba(255,255,255,.35);
+}
+
+/* 2 — darker / bolder text */
+body.light-theme .glass-panel { font-weight: 600; }
+
+body.light-theme .card-title,
+body.light-theme .sensor-title-v2 {
+  color: #04152a;
+  font-weight: 800;
+}
+body.light-theme .sensor-title-v2 { font-size: 10px; }
+body.light-theme .card-title { font-size: 12px; }
+
+body.light-theme .sensor-val-v2 { color: #020b16; font-weight: 800; }
+body.light-theme .sensor-val-v2 small { color: #004a99; font-weight: 800; }
+
+body.light-theme .sensor-status-v2 {
+  font-size: 12px;
+  font-weight: 800;
+  filter: brightness(.7) saturate(1.2);   /* amber / green / red status words */
+}
+body.light-theme .sensor-range-v2 {
+  color: #0b1d33;
+  font-size: 10.5px;
+  font-weight: 700;
+  opacity: 1;
+}
+
+/* top status cards */
+body.light-theme .system-text h2,
+body.light-theme #hSysStatusText,
+body.light-theme #sysStatusText {
+  font-weight: 900;
+  filter: brightness(.74) saturate(1.2);
+}
+body.light-theme .system-text h3 { color: #020b16; font-weight: 800; }
+body.light-theme .system-text p  { color: #0b1d33; font-weight: 700; font-size: 12px; }
+
+/* worker info box */
+body.light-theme .worker-details,
+body.light-theme .worker-details div { color: #020b16; font-weight: 700; }
+body.light-theme .worker-details span { color: #0b1d33; font-weight: 700; }
+body.light-theme .worker-details b {
+  font-weight: 900;
+  filter: brightness(.74) saturate(1.2);
+}
+
+/* obstacle rows, workers-online, tables, footer, header pills */
+body.light-theme .obst-line span { color: #0b1d33; font-size: 10.5px; font-weight: 700; }
+body.light-theme .obst-line b    { color: #020b16; font-weight: 900; }
+body.light-theme #onlineWorkerCount { color: #020b16; font-weight: 900; }
+body.light-theme table td { color: #04152a; font-weight: 600; }
+body.light-theme th { color: #04152a; font-weight: 800; }
+body.light-theme footer,
+body.light-theme footer span { color: #0b1d33; font-weight: 700; }
+body.light-theme .status-badge { font-weight: 800; }
+body.light-theme .cmd-title { color: #020b16; font-weight: 800; }
+body.light-theme .badge { font-weight: 800; }
+
+/* light theme: status badges (NO FALL / SOS NORMAL / DETECTED OBJECT …) were pale on the light fill */
+body.light-theme .badge { filter: brightness(.68) saturate(1.25); }
