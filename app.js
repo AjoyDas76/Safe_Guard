@@ -30,7 +30,11 @@ let audioEnabled = false;
       osc.stop(audioCtx.currentTime + 0.5);
     }
 
-    function toggleTheme() { document.body.classList.toggle('light-theme'); }
+    function toggleTheme() {
+      document.body.classList.toggle('light-theme');
+      // re-apply chart colours for the new theme
+      try { Object.values((window.Chart && Chart.instances) || {}).forEach((c) => c.update('none')); } catch (e) {}
+    }
 
     // ===================== Export Worker Data (Excel) =====================
     // Fetches the full '/worker1' node from Firebase Realtime Database,
@@ -267,6 +271,7 @@ let audioEnabled = false;
     const sidebar = document.getElementById('sidebar');
     menuBtn.addEventListener('click', (e) => { e.stopPropagation(); sidebar.classList.toggle('open'); });
     document.addEventListener('click', (e) => {
+      if (document.body.classList.contains('side-panel-open')) return; // Alerts / Map Tracking / Reports panel keeps the sidebar visible
       if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== menuBtn) sidebar.classList.remove('open');
     });
 
@@ -382,6 +387,39 @@ let audioEnabled = false;
         chart.data.datasets[0].data.shift();
       }
       chart.update();
+    }
+
+    // Theme-aware chart text/grid: in the light theme the axis labels and legends
+    // were a pale grey (#8493a8) on a light fill. This plugin re-colours them
+    // (darker + bolder) every time a chart updates, so it also covers charts
+    // created later (Reports) and a theme switch (toggleTheme calls update()).
+    if (window.Chart && Chart.register) {
+      Chart.register({
+        id: 'sgThemeColors',
+        beforeUpdate(chart) {
+          try {
+          const light = document.body.classList.contains('light-theme');
+          const opts = chart.options || {};
+          const tickCol = light ? '#0b1d33' : '#8493a8';
+          const gridCol = light ? 'rgba(4,32,62,0.14)' : 'rgba(255,255,255,0.05)';
+          const scales = opts.scales || {};
+          Object.keys(scales).forEach((k) => {
+            const s = scales[k];
+            if (!s || s.display === false) return;
+            if (s.ticks) {
+              s.ticks.color = tickCol;
+              s.ticks.font = light ? { size: 9, weight: '700' } : { size: 8 };
+            }
+            if (s.grid) s.grid.color = gridCol;
+          });
+          const lg = opts.plugins && opts.plugins.legend && opts.plugins.legend.labels;
+          if (lg) {
+            lg.color = tickCol;
+            lg.font = light ? { size: 10, weight: '700' } : { size: 9 };
+          }
+          } catch (e) { /* never let theming break a chart */ }
+        }
+      });
     }
 
     function createLiveChart(canvasId, label, lineColor, fillColor) {
@@ -1156,16 +1194,12 @@ let audioEnabled = false;
 
       // Targets are existing elements; no new IDs/classes are introduced.
       const getNavigationTargets = () => {
-        const workerInfo = document.querySelector('.worker-info-card');
-        const sensorGrid = document.querySelector('.sensor-grid');
         const alertCard = document.querySelector('.alert-card');
         const mapWrapper = document.querySelector('.map-wrapper');
         const historyTable = document.getElementById('eventLogTable');
 
         return [
           document.getElementById('mainContent'),
-          sensorGrid,
-          workerInfo,
           alertCard,
           mapWrapper,
           historyTable ? historyTable.closest('.card') : null
@@ -1179,6 +1213,55 @@ let audioEnabled = false;
           item.classList.toggle('active', i === index);
         });
       };
+
+      // ---- Side panels: Alerts / Map Tracking / Reports open to the RIGHT of
+      // the sidebar (sidebar stays visible); closing returns to the dashboard.
+      // nav index -> [modal element id, close function name]
+      const PANELS = {
+        1: ['alertsModal', 'closeAlertsModal'],
+        2: ['trackingModal', 'closeTrackingModal'],
+        3: ['reportsModal', 'closeReportsModal']
+      };
+      let panelOpenIndex = -1;
+
+      const closeAllPanels = (exceptIndex) => {
+        Object.keys(PANELS).forEach((k) => {
+          if (Number(k) === exceptIndex) return;
+          const fn = window[PANELS[k][1]];
+          const el = document.getElementById(PANELS[k][0]);
+          if (el && el.classList.contains('active') && typeof fn === 'function') fn();
+        });
+      };
+
+      const syncPanelState = () => {
+        let open = -1;
+        Object.keys(PANELS).forEach((k) => {
+          const el = document.getElementById(PANELS[k][0]);
+          if (el && el.classList.contains('active')) open = Number(k);
+        });
+        if (open === panelOpenIndex) return;
+        panelOpenIndex = open;
+        const desktop = window.innerWidth > 768; // phones keep the full-screen modal + drawer
+        document.body.classList.toggle('side-panel-open', open !== -1 && desktop);
+        if (open !== -1) {
+          if (desktop) {
+            sidebar.classList.add('open');
+            document.body.style.setProperty('--side-w', sidebar.offsetWidth + 'px');
+          }
+          setActiveNav(open);
+        } else {
+          setActiveNav(0); // closed -> back to Dashboard
+        }
+      };
+
+      const panelObserver = new MutationObserver(syncPanelState);
+      Object.keys(PANELS).forEach((k) => {
+        const el = document.getElementById(PANELS[k][0]);
+        if (el) panelObserver.observe(el, { attributes: true, attributeFilter: ['class'] });
+      });
+      window.addEventListener('resize', () => {
+        if (panelOpenIndex !== -1) document.body.style.setProperty('--side-w', sidebar.offsetWidth + 'px');
+      });
 
       const scrollToTarget = (target, index) => {
         if (!target) return;
@@ -1207,6 +1290,19 @@ let audioEnabled = false;
           event.preventDefault();
           event.stopPropagation();
 
+          // Alerts / Map Tracking / Reports: the link's own onclick opens the
+          // panel. Never scroll the dashboard for these — just keep the right
+          // item highlighted and make sure only one panel is open.
+          if (PANELS[index]) {
+            closeAllPanels(index);
+            setActiveNav(index);
+            if (window.innerWidth <= 768) sidebar.classList.remove('open');
+            return;
+          }
+
+          // Dashboard: close any open panel first, then go to the top.
+          if (index === 0) closeAllPanels(-1);
+
           const target = targets[index];
           scrollToTarget(target, index);
         });
@@ -1223,6 +1319,7 @@ let audioEnabled = false;
         });
 
         const observer = new IntersectionObserver((entries) => {
+          if (panelOpenIndex !== -1) return; // a side panel owns the highlight
           const visible = entries
             .filter(entry => entry.isIntersecting)
             .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
@@ -1249,6 +1346,8 @@ let audioEnabled = false;
         link.addEventListener('keydown', (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
+            if (PANELS[index]) { link.click(); return; }
+            if (index === 0) closeAllPanels(-1);
             scrollToTarget(targets[index], index);
           }
         });
@@ -2499,7 +2598,7 @@ let audioEnabled = false;
 
       const hrChart = createLiveChart('hHrChart', 'Heart Rate (bpm)', '#ff3366', 'rgba(255,51,102,0.1)');
       const spo2Chart = createLiveChart('hSpo2Chart', 'SpO₂ (%)', '#00f2ff', 'rgba(0,242,255,0.1)');
-      const gasChart = createLiveChart('hGasChart', 'Gas Level', '#f59e0b', 'rgba(245,158,11,0.1)');
+      const gasChart = createLiveChart('hGasChart', 'Gas Level', '#a855f7', 'rgba(168,85,247,0.1)');
       gasChart.data.datasets.push({
         label: 'Alert level', data: [], borderColor: '#ff3366', borderDash: [5, 4],
         borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0
