@@ -45,6 +45,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="ai.css">
 </head>
 <body>
 
@@ -141,6 +142,7 @@
       <div class="header-right">
         <button class="btn-action" id="audioBtn" onclick="toggleAudio()" aria-pressed="false" aria-label="Toggle alert sound"><i class="fa-solid fa-volume-xmark" id="audioIcon" aria-hidden="true"></i> Audio: OFF</button>
         <button class="btn-action" onclick="toggleTheme()" aria-label="Toggle light/dark theme"><i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i> Theme</button>
+        <button class="btn-action" id="aiAnalyzeBtn" onclick="openAiAnalysis(event)" aria-label="Open AI anomaly analysis"><i class="fa-solid fa-brain" aria-hidden="true"></i> AI Analyze</button>
         <button class="btn-action" id="exportBtn" onclick="exportWorkerData()" aria-label="Export worker data to Excel"><i class="fa-solid fa-download" aria-hidden="true"></i> Export</button>
         <div class="clock-box"><i class="fa-regular fa-clock"></i> <span id="liveClock">--:--:--</span></div>
         <button class="btn-action" id="logoutBtn" onclick="handleLogout()" aria-label="Log out" title="Log out"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> <span id="logoutUserLabel">Logout</span></button>
@@ -524,5 +526,7 @@
   </div>
 
   <script src="app.js" defer></script>
+  <script src="ai-engine.js" defer></script>
+  <script src="ai-ui.js" defer></script>
 </body>
 </html>
