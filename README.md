@@ -167,6 +167,20 @@ SafeGuard
 | Final Project | ⏳ Pending both sections' completion |
 
 
+## 🤖 AI Features (no API key, no cost)
+
+Two AI-assisted features run **entirely in the browser** on the data the dashboard already reads from Firebase (`/worker1`, `/worker1/logs`, `/helmet1/live`, `/helmet1/logs`). Nothing is written to Firebase.
+
+| File | Purpose |
+|---|---|
+| `ai-engine.js` | Pure logic: alert evaluation, incident grouping, anomaly detection, Bangla/English intent detection |
+| `ai-ui.js` | "Ask SafeGuard" chat widget + "AI Analyze" modal |
+| `ai.css` | Styles (dark/light theme aware) |
+
+**1. Ask SafeGuard (chat)** — floating button, bottom-right. Answers questions such as *"আজকে কয়টা অ্যালার্ট হয়েছে?"* or *"ওয়ার্কারের অবস্থা এখন কেমন?"* from live data and logs. Every number is computed from real data (no hallucination). Optionally, a free Google Gemini key can be pasted under ⚙️ so free-form questions are answered by an LLM that is given the live data (the key stays in that browser only).
+
+**2. AI Anomaly Analysis** — header button **AI Analyze** → choose 1H / 6H / 24H / 7D → press **ANALYZE** (manual, never automatic). Methods: robust z-score (median/MAD), sudden-jump detection, sustained-trend regression with time-to-threshold forecast, flat-line (stuck sensor), data gaps, prolonged inactivity, and temperature + heart-rate cross-signal. Each finding is compared with the fixed thresholds ("would the fixed limit have alarmed?"). Tunable constants: `METRICS` and `CFG` in `ai-engine.js`.
+
 ## Team
 - **Ajoy Das**
 - **Shafiul Azam**
