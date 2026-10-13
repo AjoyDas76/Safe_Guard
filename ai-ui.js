@@ -149,7 +149,7 @@
   // LOCAL ANSWER ENGINE (one handler per intent)
   // ====================================================================
   async function hGreet() {
-    return T('হ্যালো! আমি <b>Ask SafeGuard</b>। লাইভ সেন্সর ডেটা আর লগ দেখে আপনার প্রশ্নের উত্তর দিই।', 'Hello! I\'m <b>Ask SafeGuard</b>. I answer from the live sensor data and logs.')
+    return T('হ্যালো! আমি <b>SafeGuard</b>। লাইভ সেন্সর ডেটা আর লগ দেখে আপনার প্রশ্নের উত্তর দিই।', 'Hello! I\'m <b>SafeGuard</b>. I answer from the live sensor data and logs.')
       + '<br>' + small(T('যেমন: "আজকে কয়টা অ্যালার্ট হয়েছে?" বা "ওয়ার্কারের অবস্থা এখন কেমন?"', 'e.g. "How many alerts today?" or "What is the worker status now?"'));
   }
 
@@ -480,7 +480,8 @@
     // The dashboard renders a 1280px desktop layout on phones (see index.html).
     // Scale the widget up there so it stays readable.
     const sw = Math.min(screen.width, screen.height) || window.innerWidth;
-    const k = sw >= 1024 ? 1 : Math.max(1, Math.min(3.2, (1280 / sw) * 0.85));
+    const scaledDesktop = window.innerWidth > sw * 1.4 && window.innerWidth > 768; // phone in "Desktop site" mode
+    const k = (sw >= 1024 || !scaledDesktop) ? 1 : Math.max(1, Math.min(3.2, (1280 / sw) * 0.85));
     document.documentElement.style.setProperty('--ai-k', k.toFixed(2));
   }
 
@@ -545,7 +546,7 @@
     }
   }
   function hGreetSync() {
-    return 'হ্যালো! আমি <b>Ask SafeGuard</b> 👋<br>' + small('লাইভ সেন্সর ডেটা ও লগ দেখে উত্তর দিই। নিচের প্রশ্নগুলো চেপে দেখুন, অথবা নিজের মতো লিখুন (বাংলা/English)।');
+    return 'হ্যালো! আমি <b>SafeGuard</b> 👋<br>' + small('লাইভ সেন্সর ডেটা ও লগ দেখে উত্তর দিই। নিচের প্রশ্নগুলো চেপে দেখুন, অথবা নিজের মতো লিখুন (বাংলা/English)।');
   }
 
   function addMsg(who, html) {
