@@ -2,23 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" id="viewportMeta" content="width=1280, initial-scale=0.3, minimum-scale=0.2, maximum-scale=5, user-scalable=yes">
+  <meta name="viewport" id="viewportMeta" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script>
-    // Always render the desktop layout (1280px wide). On phones/tablets the page
-    // is scaled down to fit the screen; the user can pinch-zoom to read details.
+    // Phones get the real mobile layout (device-width). If a phone browser is
+    // switched to "Desktop site" (the page then gets a much wider viewport than
+    // the screen), render the full 1280px PC layout scaled to fit instead.
     (function () {
-      var DESKTOP_W = 1280;
       var m = document.getElementById('viewportMeta');
       var sw = Math.min(screen.width, screen.height) || window.innerWidth;
-      if (sw >= 1024) { m.setAttribute('content', 'width=device-width, initial-scale=1.0'); return; }
+      m.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover');
+      if (sw >= 1024) return;
       function apply() {
-        var w = Math.min(screen.width, window.innerWidth || screen.width) || screen.width;
-        w = Math.max(w, Math.min(screen.width, screen.height));
-        var scale = Math.min(1, w / DESKTOP_W).toFixed(3);
-        m.setAttribute('content', 'width=' + DESKTOP_W + ', initial-scale=' + scale + ', minimum-scale=' + scale + ', maximum-scale=5, user-scalable=yes');
+        var vw = window.innerWidth || sw;
+        var portraitW = Math.min(screen.width, screen.height);
+        if (vw > portraitW * 1.4 && vw > 768) {
+          var scale = Math.min(1, Math.max(screen.width, window.outerWidth || 0, portraitW) / 1280).toFixed(3);
+          m.setAttribute('content', 'width=1280, initial-scale=' + scale + ', minimum-scale=' + scale + ', maximum-scale=5, user-scalable=yes');
+        }
       }
       apply();
-      window.addEventListener('orientationchange', function () { setTimeout(apply, 300); });
     })();
   </script>
   <title>SAFEGUARD // REAL-TIME COMMAND CENTER</title>
@@ -46,6 +48,7 @@
 
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="ai.css">
+  <link rel="stylesheet" href="mobile.css">
 </head>
 <body>
 
@@ -525,8 +528,20 @@
     </div>
   </div>
 
+  <!-- ===== Mobile bottom navigation (visible on phones only, see mobile.css) ===== -->
+  <nav id="bottomNav" aria-label="Mobile navigation">
+    <button type="button" class="bn-item active" data-nav="home"><i class="fa-solid fa-house"></i><span>Home</span></button>
+    <button type="button" class="bn-item" data-nav="cards"><i class="fa-solid fa-table-cells-large"></i><span>Cards</span></button>
+    <button type="button" class="bn-item" data-nav="charts"><i class="fa-solid fa-chart-line"></i><span>Charts</span></button>
+    <button type="button" class="bn-item" data-nav="others"><i class="fa-solid fa-ellipsis"></i><span>Others</span></button>
+    <button type="button" class="bn-item" data-nav="alerts"><i class="fa-solid fa-triangle-exclamation"></i><span>Alerts</span></button>
+    <button type="button" class="bn-item" data-nav="map"><i class="fa-solid fa-map-location-dot"></i><span>Map</span></button>
+    <button type="button" class="bn-item" data-nav="reports"><i class="fa-solid fa-chart-column"></i><span>Reports</span></button>
+  </nav>
+
   <script src="app.js" defer></script>
   <script src="ai-engine.js" defer></script>
   <script src="ai-ui.js" defer></script>
+  <script src="mobile.js" defer></script>
 </body>
 </html>
