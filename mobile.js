@@ -33,16 +33,18 @@
   function anchors() {
     var chart = document.querySelector('.col-flex-chart');
     var mapCard = document.querySelector('.map-card-large');
+    var hist = $('eventLogTable');
         return {
       cards:  document.querySelector('.sensor-grid'),
       charts: chart && chart.closest('.row'),
-      others: mapCard && mapCard.closest('.row')   // Live Satellite Tracking ... Active Alerts + footer
+      events: mapCard && mapCard.closest('.row'),          // highlight zone starts at Live Satellite Tracking
+    eventsTarget: hist && hist.closest('.card')          // tapping Events jumps to EVENT / ALERT HISTORY
     };
   }
 
   function sectionFromScroll() {
     var a = anchors(), probe = window.innerHeight * 0.4, cur = 'home';
-    ['cards', 'charts', 'others'].forEach(function (k) {
+    ['cards', 'charts', 'events'].forEach(function (k) {
       if (a[k] && a[k].getBoundingClientRect().top <= probe) cur = k;
     });
     return cur;
@@ -79,7 +81,7 @@
     if (!btn) return;
     var k = btn.dataset.nav, a = anchors();
     if (k === 'home') { goTo(null, true); setActive('home'); return; }
-    if (k === 'cards' || k === 'charts' || k === 'others') { goTo(a[k]); setActive(k); return; }
+    if (k === 'cards' || k === 'charts' || k === 'events') { goTo(k === 'events' ? a.eventsTarget : a[k]); setActive(k); return; }
     var p = PANELS[k];
     closePanels(k);
     var e = $(p.el);
