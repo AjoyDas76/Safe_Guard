@@ -2,7 +2,9 @@
 
 Second section of SafeGuard, alongside the [SafeGuard Vest](../vest). A dual-Arduino-Nano helmet for near-miss obstacle detection, hazardous gas monitoring, wearer vitals tracking, and auto headlamp control — with WiFi connectivity back to the same Firebase project as the vest.
 
-**Status: Phase 1-8 complete, Phase 9 (full system integration) coded and ready to test, Phase 10 pending**
+**Status: ✅ Complete — Phase 1-9 verified working end-to-end (confirmed via live Firebase data: obstacle, gas, heart rate, SpO2 all populating correctly), website dashboard integration done. Phase 10 (final field documentation) pending.**
+
+See [`HELMET-CONNECTIONS.md`](./HELMET-CONNECTIONS.md) for the full hardware wiring reference.
 
 ## Architecture
 
@@ -26,7 +28,7 @@ Ultrasonic ×3, MQ-2 gas sensor, GY-30100 (MAX30100), Arduino Nano ×2, ESP-01 (
 6. ✅ Alert System Integration — buzzer tones + vibration motor
 7. ✅ ESP-01 WiFi → Firebase upload
 8. ➡️ *(SIM800L GSM SOS — moved to the vest, see note above)*
-9. 🚧 Dual-Nano System Integration — firmware written (`Nano1_SensorNode.ino` + `Nano2_CommNode.ino`), not yet tested as a complete physical system
+9. ✅ Dual-Nano System Integration — `Nano1_SensorNode.ino` + `Nano2_CommNode.ino` (v3/final), tested and confirmed working as a complete physical system, including live data on the website dashboard
 10. ⏳ Final field testing & documentation
 
 ## Folder structure
