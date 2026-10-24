@@ -7,9 +7,12 @@ An IoT-based wearable safety vest powered by **ESP32**, **LoRa**, and a **solar 
 - 📍 GPS Tracking (NEO-M8N)
 - 🚶 Motion & Fall Detection (MPU6050)
 - 📡 Long-range Communication (SX1278 RA-02 LoRa)
+- 📲 GSM Emergency SOS SMS (SIM800L) — sends last GPS location on fall/SOS/high-temp alert
 - ☀️ Solar Charging (DFRobot Solar Power Manager 5V)
 - 🆘 SOS Emergency Button
 - 🔋 Battery-powered wearable system
+
+See [`VEST-CONNECTIONS.md`](./VEST-CONNECTIONS.md) for the full hardware wiring reference.
 
 ## Hardware
 - ESP32 DevKit V1
@@ -17,6 +20,7 @@ An IoT-based wearable safety vest powered by **ESP32**, **LoRa**, and a **solar 
 - MPU6050
 - NEO-M8N GPS
 - SX1278 RA-02
+- SIM800L GSM
 - 5V Flexible Solar Panel
 - DFRobot Solar Power Manager 5V
 - 18650 Li-ion Battery
@@ -69,7 +73,7 @@ See `firmware/README.md` for the full phase-by-phase breakdown and status.
 | Phase 06 - IoT Cloud Platform         | ✅ Completed     |
 | Phase 07 - Mobile Application            | ✅ Completed     |
 | Phase 08 - Smart Safety Feature Integration    | ✅ Completed     |
-| Phase 09 - Full System Integration              | ⬜ Pending     |
+| Phase 09 - Full System Integration              | ✅ Completed     |
 | Phase 10 - Final Product Release | ⬜ Pending     |
 
 <img width="1149" height="1369" alt="Roadmap" src="https://github.com/user-attachments/assets/29d0c561-884e-4e45-ae82-a04fb72beb29" />
