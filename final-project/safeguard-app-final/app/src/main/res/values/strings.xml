@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">SafeGuard</string>
-    <string name="google_maps_key">AIzaSyA0dh0Qu0hxxKLt9Yp5rKAZ9tZuuqnYzwE</string>
+    <string name="google_maps_key">API_Here</string>
     <string name="worker_id">WKR-01</string>
     <string name="worker_name">Tariqul Islam</string>
     <string name="batch_id">BATCH-LORA-92</string>
