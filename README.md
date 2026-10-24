@@ -123,6 +123,11 @@ SafeGuard
 ```
 SafeGuard
 ├── index.html          ← Web dashboard (must stay at repo root for GitHub Pages)
+├── app.js, style.css    ← Dashboard logic/styles
+├── mobile.js, mobile.css ← Mobile-responsive layer
+├── ai-engine.js          ← AI logic: alert evaluation, incident grouping, anomaly detection
+├── ai-ui.js              ← "Ask SafeGuard" chat widget + "AI Analyze" modal
+├── ai.css                ← AI feature styles
 ├── sw.js                ← Dashboard's service worker (root-scoped, must stay here)
 │
 ├── vest/                 ← Smart Safety Vest — ✅ Complete
@@ -137,24 +142,23 @@ SafeGuard
 │   ├── results/
 │   └── thesis/
 │
-├── helmet/               ← Smart Safety Helmet — 🚧 In Progress
+├── helmet/               ← Smart Safety Helmet — ✅ Complete
 │   ├── README.md
-│   ├── firmware/
-│   │   └── Phase-01_Component_Verification/
+│   ├── HELMET-CONNECTIONS.md  (full hardware wiring reference)
+│   ├── firmware/              (Phase-01 through Phase-10)
 │   ├── diagrams/
 │   ├── datasheets/
 │   └── docs/
 │
 └── final-project/        ← Combined final-release deliverables (report, final
                              presentation, consolidated diagrams, BOM, results)
-                             for the project as a whole, once both sections
-                             are complete
+                             for the project as a whole
 ```
 
 ## Sections
 
-- **[`/vest`](./vest)** — LoRa-based Smart Safety Vest: fall detection (MPU6050), environmental sensing (BME280), GPS tracking, LoRa communication, Firebase cloud sync, web dashboard, and Android app.
-- **[`/helmet`](./helmet)** — Dual-Nano Smart Safety Helmet: near-miss obstacle detection (ultrasonic), gas monitoring (MQ-2), vitals (MAX30100), WiFi (ESP-01) + GSM (SIM800L) redundant connectivity to the same Firebase project.
+- **[`/vest`](./vest)** — LoRa-based Smart Safety Vest: fall detection (MPU6050), environmental sensing (BME280), GPS tracking, LoRa communication, GSM (SIM800L) emergency SOS SMS with GPS location, Firebase cloud sync, web dashboard, and Android app.
+- **[`/helmet`](./helmet)** — Dual-Nano Smart Safety Helmet: near-miss obstacle detection (ultrasonic), gas monitoring (MQ-2), vitals (MAX30100), WiFi (ESP-01) connectivity to the same Firebase project.
 - **[`/final-project`](./final-project)** — Combined final-release materials for the completed system.
 - **Root (`index.html`, `sw.js`)** — the live web dashboard, kept at the repository root since GitHub Pages serves from root and the service worker's scope depends on its path.
 
@@ -163,8 +167,8 @@ SafeGuard
 | Section | Status |
 |---|---|
 | Vest | ✅ Complete |
-| Helmet | 🚧 Phase 1 (Component Verification) nearly done |
-| Final Project | ⏳ Pending both sections' completion |
+| Helmet | ✅ Complete (firmware + website integration, confirmed working end-to-end) |
+| Final Project | ⏳ Pending final submission packaging |
 
 
 ## 🤖 AI Features (no API key, no cost)
