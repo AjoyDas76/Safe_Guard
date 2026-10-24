@@ -78,3 +78,7 @@ Vest ESP32 (WiFi)  -->  Firebase Realtime Database  -->  Mobile App / Dashboard
 - Library: `Firebase ESP32 Client` (by Mobizt). This project targets v4.4.x, which
   uses the `FirebaseESP32.h` header and the `Firebase.setXxx(fbdo, path, ...)` API
   (passing `fbdo` by reference, path as `const char*`).
+
+## Status
+
+✅ **Completed** — note that despite this phase's own "never commit real credentials" rule above, `receiver_final.ino` (Phase 9) and the helmet's `ESP01_WiFi_Firebase.ino` currently have real WiFi/Firebase credentials hardcoded. This should be fixed before the repo stays public.
