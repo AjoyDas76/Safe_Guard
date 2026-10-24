@@ -1,0 +1,120 @@
+/* =========================================================
+   MOBILE VIEW (phones, <= 768px)
+   - single column: one box after another
+   - sidebar + hamburger removed, replaced by a bottom navigation bar
+   - Alerts / Map Tracking / Reports open as full pages ABOVE the bottom bar
+   Desktop (> 768px) is untouched: the bottom bar is hidden there.
+   ========================================================= */
+
+#bottomNav { display: none; }
+
+@media (max-width: 768px) {
+  :root { --bnav-h: 62px; --bnav-total: calc(var(--bnav-h) + env(safe-area-inset-bottom, 0px)); }
+
+  /* ---- remove the old navigation ---- */
+  #sidebar, aside#sidebar, #menuBtn, .nav-toggle { display: none !important; }
+
+  /* ---- one box after another ---- */
+  body { display: block; }
+  #mainContent { padding: 9px 9px calc(var(--bnav-total) + 14px); gap: 10px; }
+  #mainContent .row { display: flex; flex-direction: column; gap: 10px; }
+  #mainContent .row > .card { width: 100%; flex: none; min-width: 0; }
+  #mainContent .sensor-grid { display: grid; grid-template-columns: 1fr !important; gap: 10px !important; }
+  .sensor-card-v2 { height: auto; min-height: 148px; }
+  .map-card-large { min-width: 0; }
+  .chart-box { height: 230px; }
+  .map-card-large .map-wrapper { height: 300px; }
+  .worker-details { grid-template-columns: repeat(2, 1fr) !important; }
+  .header-left { flex-wrap: wrap; }
+  .header-left .status-badge { margin-left: 0; }
+
+  /* ---- bottom navigation ---- */
+  body.authed #bottomNav {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 99995;
+    height: var(--bnav-total); padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--aside-bg); border-top: 1px solid var(--glass-border);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 -6px 24px rgba(0,0,0,.35);
+  }
+  #bottomNav .bn-item {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; background: none; border: 0; color: var(--text-muted); cursor: pointer;
+    font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 600; position: relative;
+    -webkit-tap-highlight-color: transparent; transition: color .2s ease;
+  }
+  #bottomNav .bn-item i { font-size: 18px; transition: transform .2s ease; }
+  #bottomNav .bn-item.active { color: var(--cyan); }
+  #bottomNav .bn-item.active i { transform: translateY(-2px); filter: drop-shadow(0 0 6px var(--cyan)); }
+  #bottomNav .bn-item.active::before {
+    content: ''; position: absolute; top: 0; left: 22%; right: 22%; height: 3px;
+    border-radius: 0 0 4px 4px; background: var(--cyan); box-shadow: 0 0 10px var(--cyan);
+  }
+
+  /* ---- full pages that sit ABOVE the bottom bar ---- */
+  #alertsModal, #trackingModal, #reportsModal {
+    top: 0; left: 0; width: 100vw; height: auto; bottom: var(--bnav-total);
+    padding: 0; z-index: 99990; background: #050b14;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  #alertsModal .map-modal-content, #trackingModal .map-modal-content, #reportsModal .map-modal-content {
+    width: 100%; max-width: none; height: 100%; border-radius: 0; border-left: 0; border-right: 0; border-top: 0;
+  }
+  #alertsBody, #reportsBody { overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; }
+}
+
+/* floating "Ask SafeGuard" chat: keep it above the bottom bar */
+@media (max-width: 768px) {
+  .ai-fab { bottom: calc(var(--bnav-total) + 12px); right: 12px; padding: 10px 14px; }
+  .ai-panel { right: 8px; left: 8px; width: auto; bottom: calc(var(--bnav-total) + 8px); height: min(540px, calc(100vh - var(--bnav-total) - 24px)); z-index: 99996; }
+}
+
+/* light theme bottom bar */
+@media (max-width: 768px) {
+  body.light-theme #alertsModal, body.light-theme #trackingModal, body.light-theme #reportsModal { background: #e8eef7; }
+}
+
+/* =========================================================
+   MOBILE HEADER (SAFEGUARD COMMAND)
+   row 1: title (left) + clock (right)
+   row 2: VEST | HELMET | SIGNAL | AUDIO      (4 equal boxes)
+   row 3: THEME | AI ANALYZE | EXPORT | LOGOUT (same 4 equal boxes)
+   ========================================================= */
+@media (max-width: 768px) {
+  #mainContent > header.glass-panel {
+    display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px; padding: 10px !important; align-items: stretch;
+  }
+  #mainContent > header .header-left, #mainContent > header .header-right { display: contents; }
+
+  /* row 1 */
+  #mainContent > header .cmd-title {
+    order: 1; grid-column: 1 / 4; align-self: center; font-size: 12px; letter-spacing: .6px; white-space: nowrap;
+  }
+  #mainContent > header .clock-box {
+    order: 2; grid-column: 4; align-self: center; justify-self: end; margin: 0; padding: 0; border: 0;
+    font-size: 10px; white-space: nowrap; text-align: right; display: block; height: auto; min-height: 0; line-height: 1.2;
+  }
+  #mainContent > header .clock-box i { display: none; }
+
+  /* shared box look for all 8 buttons */
+  #mainContent > header .status-badge, #mainContent > header .btn-action {
+    margin: 0 !important; min-width: 0; width: 100%; height: 46px; min-height: 46px; padding: 4px 3px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    text-align: center; line-height: 1.15; border-radius: 10px; white-space: normal; overflow: hidden;
+    font-size: 8px; letter-spacing: .2px; word-break: break-word;
+  }
+  #mainContent > header .btn-action { font-family: 'Orbitron', sans-serif; font-weight: 700; }
+  #mainContent > header .btn-action i, #mainContent > header .status-badge i { font-size: 11px !important; }
+
+  /* row 2 */
+  #mainContent > header #connPill       { order: 3; }
+  #mainContent > header #helmetConnPill { order: 4; }
+  #mainContent > header #signalPill     { order: 5; }
+  #mainContent > header #audioBtn       { order: 6; }
+  /* row 3 */
+  #mainContent > header .btn-action:nth-of-type(2) { order: 7; }
+  #mainContent > header #aiAnalyzeBtn   { order: 8; }
+  #mainContent > header #exportBtn      { order: 9; }
+  #mainContent > header #logoutBtn      { order: 10; }
+  #mainContent > header #logoutUserLabel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
