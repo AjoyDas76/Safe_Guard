@@ -10,7 +10,7 @@ Full wiring reference for both Arduino Nano units in the helmet, plus the indepe
 graph LR
     S[Sensors:<br/>Ultrasonic x3, MQ-2, MAX30100] --> N1[Nano #1<br/>Sensor Node]
     N1 -- local alerts --> A[Buzzer x2, Vibration Motor]
-    N1 -- Serial D11 to D0 --> N2[Nano #2<br/>Communication Node]
+    N1 -- Serial D11 to D4 --> N2[Nano #2<br/>Communication Node]
     N2 -- WiFi --> ESP[ESP-01]
     ESP --> FB[(Firebase /helmet1)]
 
@@ -75,18 +75,18 @@ ESP-01 (via HW-580 adapter board). *(SIM800L is no longer on the helmet — see 
 
 | Subsystem | Pin | Nano #2 |
 |---|---|---|
-| **Link from Nano #1** | RX (Hardware Serial) | D0 — wired to Nano #1's D11 |
+| **Link from Nano #1** | RX (SoftwareSerial) | D4 — wired to Nano #1's D11 |
 | **ESP-01 adapter (HW-580)** | Adapter TX → Nano RX | D2 |
 | | Adapter RX ← Nano TX | D3 |
 | | Adapter VCC | 5V |
 | | Adapter GND | GND |
 
-D6/D7 (previously used for SIM800L) are now free.
+D0/D1 (now left free for USB) and D6/D7 (previously used for SIM800L) are all free.
 
 > **ESP-01 note:** the HW-580 adapter has its own onboard 3.3V regulator and TX/RX level shifting, so it takes 5V directly from Nano #2 — no separate AMS1117 or voltage dividers needed for it.
 
 ### 2.3 Before uploading to Nano #2
-Disconnect the D0 wire (coming from Nano #1) before uploading new code — otherwise the USB upload conflicts with it.
+The link from Nano #1 now uses D4 (SoftwareSerial) instead of D0 — this was changed specifically so that **D0/D1 stay free for USB upload and Serial Monitor at all times**. No wires need to be disconnected before uploading new code to Nano #2.
 
 ---
 
@@ -134,5 +134,5 @@ Removing SIM800L from the helmet also removes its power/brownout risk from this 
 
 ## Notes
 - Pin numbers above are from the **finalized Phase 9 integration firmware** — the source of truth for the physical build, same convention as `VEST-CONNECTIONS.md`.
-- This firmware has been written and is ready to upload, but has **not yet been physically tested as a complete combined system** (all sensors + both Nanos + ESP-01 running together) — that's the current next step.
+- This firmware (v3/final) has been tested and confirmed working as a complete combined system (all sensors + both Nanos + ESP-01 running together) — verified via live data populating correctly on the Firebase dashboard.
 - SIM800L GSM SOS has moved to the vest — see `vest/VEST-CONNECTIONS.md` §1.5.
