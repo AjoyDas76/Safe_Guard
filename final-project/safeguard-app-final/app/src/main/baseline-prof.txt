@@ -1,0 +1,5 @@
+# Hand-written baseline profile: pre-compiles the app's own code (all screens, managers, UI components)
+# so cold start and first scrolls are much faster on low-end phones. Compose/AndroidX libraries ship their own profiles.
+HSPLcom/example/**;->**(**)**
+HSPLcom/example/**;-><init>(**)**
+Lcom/example/**;
