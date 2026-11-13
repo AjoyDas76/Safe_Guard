@@ -543,25 +543,5 @@
   <script src="ai-engine.js" defer></script>
   <script src="ai-ui.js" defer></script>
   <script src="mobile.js" defer></script>
-  <script>
-  /* "Ask SafeGuard" button: show icon + text for 3 s after the page opens, then keep only the icon */
-  (function () {
-    var started = false;
-    var t = setInterval(function () {
-      var fab = document.querySelector('.ai-fab');
-      if (!fab || started || fab.offsetParent === null) return;
-      started = true; clearInterval(t);
-      [].slice.call(fab.childNodes).forEach(function (n) {
-        if (n.nodeType === 3 && n.textContent.trim()) {
-          var s = document.createElement('span'); s.className = 'ai-fab-label';
-          s.textContent = n.textContent.trim(); fab.replaceChild(s, n);
-        } else if (n.nodeType === 1 && !n.querySelector('i,svg') && !/^(I|SVG|IMG)$/.test(n.tagName) && n.textContent.trim()) {
-          n.classList.add('ai-fab-label');
-        }
-      });
-      setTimeout(function () { fab.classList.add('collapsed'); }, 3000);
-    }, 300);
-  })();
-  </script>
 </body>
 </html>
