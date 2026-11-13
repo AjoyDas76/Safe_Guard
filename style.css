@@ -2832,19 +2832,3 @@ body.light-theme .badge { filter: brightness(.68) saturate(1.25); }
   #mainContent > header .clock-box i { display: none; }
   #logoutUserLabel { max-width: 72px; }
 }
-
-
-/* ============================================================
-   "Ask SafeGuard" floating button — smaller, and collapses to the
-   icon only 3 seconds after the page opens (see script in index.html).
-   Hover / keyboard focus shows the label again.
-   ============================================================ */
-.ai-fab { font-size: 13px !important; padding: 9px 15px !important; gap: 8px !important;
-  transition: padding .35s ease, gap .35s ease, border-radius .35s ease, box-shadow .3s ease, transform .2s ease; }
-.ai-fab i, .ai-fab svg { font-size: 17px !important; }
-.ai-fab .ai-fab-label { display: inline-block; max-width: 180px; overflow: hidden; white-space: nowrap;
-  opacity: 1; transition: max-width .4s ease, opacity .25s ease; }
-.ai-fab.collapsed { padding: 12px !important; gap: 0 !important; border-radius: 50% !important; }
-.ai-fab.collapsed .ai-fab-label { max-width: 0; opacity: 0; }
-.ai-fab.collapsed:hover, .ai-fab.collapsed:focus-visible { padding: 9px 15px !important; gap: 8px !important; border-radius: 999px !important; }
-.ai-fab.collapsed:hover .ai-fab-label, .ai-fab.collapsed:focus-visible .ai-fab-label { max-width: 180px; opacity: 1; }
