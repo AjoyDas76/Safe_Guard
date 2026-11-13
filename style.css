@@ -2659,7 +2659,7 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
 /* ============================================================
    HELMET NEON STATE GLOW
    - Helmet OFFLINE / waiting  -> steady YELLOW neon
-   - Helmet REALTIME STREAMING -> steady RED neon
+   - Helmet REALTIME STREAMING -> steady GREEN neon (same as Vest)
    Driven purely by the 'active' class the helmet JS already toggles
    on #hSysIcon (setConnectedUi adds it, goOffline removes it).
    Applies ONLY to the main helmet status card (AWAITING / HELMET OFFLINE /
@@ -2670,8 +2670,8 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
   box-shadow: 0 0 0 1px rgba(234,179,8,.35), 0 0 24px 4px rgba(234,179,8,.28), 0 0 50px 10px rgba(234,179,8,.1);
 }
 .system-card:has(#hSysIcon.active) {
-  border-color: var(--red);
-  box-shadow: 0 0 0 1px rgba(255,51,102,.35), 0 0 24px 4px rgba(255,51,102,.28), 0 0 50px 10px rgba(255,51,102,.1);
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px rgba(16,185,129,.35), 0 0 24px 4px rgba(16,185,129,.28), 0 0 50px 10px rgba(16,185,129,.1);
 }
 
 /* Helmet hover glows — Gas and Obstacle colours exchanged:
