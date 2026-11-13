@@ -2809,27 +2809,26 @@ body.light-theme .badge { filter: brightness(.68) saturate(1.25); }
 
 /* ============================================================
    TOP BAR — keep it on ONE row on 13"/14" laptops (769px–1500px)
-   The bar was allowed to wrap (flex-wrap) and its items were sized
-   for wide screens, so on ~1100-1300px of usable width it broke
-   into two rows. Here it never wraps and the items shrink.
+   Never wraps; items shrink only a little so text stays readable.
    ============================================================ */
 @media (min-width: 769px) and (max-width: 1500px) {
-  #mainContent > header.glass-panel { flex-wrap: nowrap; gap: 8px; padding: 8px 12px; }
+  #mainContent > header.glass-panel { flex-wrap: nowrap; gap: 8px; padding: 9px 14px; }
   #mainContent > header .header-left,
-  #mainContent > header .header-right { flex-wrap: nowrap; gap: 6px; min-width: 0; }
+  #mainContent > header .header-right { flex-wrap: nowrap; gap: 8px; min-width: 0; }
   #mainContent > header .header-right { flex-shrink: 0; }
-  #mainContent > header .cmd-title { font-size: 12px; letter-spacing: .5px; }
-  #mainContent > header .status-badge { font-size: 9px; padding: 4px 8px; letter-spacing: .2px; white-space: nowrap; }
-  #mainContent > header .btn-action { font-size: 10px; padding: 6px 8px; gap: 4px; white-space: nowrap; min-height: 32px; }
-  #mainContent > header .clock-box { font-size: 11px; gap: 4px; white-space: nowrap; }
-  #logoutUserLabel { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #mainContent > header .cmd-title { font-size: 14px; letter-spacing: .6px; }
+  #mainContent > header .status-badge { font-size: 10px; padding: 5px 9px; letter-spacing: .3px; white-space: nowrap; }
+  #mainContent > header .btn-action { font-size: 11px; padding: 7px 9px; gap: 5px; white-space: nowrap; }
+  #mainContent > header .clock-box { font-size: 13px; gap: 5px; white-space: nowrap; }
+  #logoutUserLabel { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 @media (min-width: 769px) and (max-width: 1280px) {
   #mainContent > header .header-left,
-  #mainContent > header .header-right { gap: 4px; }
-  #mainContent > header .cmd-title { font-size: 11px; letter-spacing: .2px; }
-  #mainContent > header .status-badge { font-size: 8px; padding: 3px 6px; }
-  #mainContent > header .btn-action { font-size: 9px; padding: 5px 6px; }
+  #mainContent > header .header-right { gap: 6px; }
+  #mainContent > header .cmd-title { font-size: 13px; letter-spacing: .4px; }
+  #mainContent > header .status-badge { font-size: 9.5px; padding: 4px 8px; }
+  #mainContent > header .btn-action { font-size: 10.5px; padding: 6px 8px; }
+  #mainContent > header .clock-box { font-size: 12px; }
   #mainContent > header .clock-box i { display: none; }
-  #logoutUserLabel { max-width: 56px; }
+  #logoutUserLabel { max-width: 72px; }
 }
