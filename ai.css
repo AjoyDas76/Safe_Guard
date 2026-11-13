@@ -12,15 +12,21 @@ body:not(.authed) #aiModal { display: none !important; }
 .ai-fab {
   position: fixed; right: 18px; bottom: 18px; z-index: 99990;
   display: flex; align-items: center; gap: 9px;
-  padding: 12px 18px; border-radius: 999px; cursor: pointer;
-  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .6px;
+  padding: 9px 15px; border-radius: 999px; cursor: pointer;
+  font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .6px;
   color: #04101c; border: none;
   background: linear-gradient(90deg, #2563eb 0%, #00f2ff 100%);
   box-shadow: 0 6px 24px rgba(0, 242, 255, .35), 0 2px 8px rgba(0, 0, 0, .4);
   transform: scale(var(--ai-k, 1)); transform-origin: bottom right;
-  transition: filter .2s ease, opacity .2s ease;
+  transition: filter .2s ease, opacity .2s ease, padding .35s ease, gap .35s ease;
 }
 .ai-fab i { font-size: 16px; }
+.ai-fab .ai-fab-label { display: inline-block; max-width: 160px; overflow: hidden; white-space: nowrap; opacity: 1; transition: max-width .4s ease, opacity .25s ease; }
+/* collapsed: icon only (label returns on hover / keyboard focus) */
+.ai-fab.collapsed { padding: 12px; gap: 0; }
+.ai-fab.collapsed .ai-fab-label { max-width: 0; opacity: 0; }
+.ai-fab.collapsed:hover, .ai-fab.collapsed:focus-visible { padding: 9px 15px; gap: 9px; }
+.ai-fab.collapsed:hover .ai-fab-label, .ai-fab.collapsed:focus-visible .ai-fab-label { max-width: 160px; opacity: 1; }
 .ai-fab:hover { filter: brightness(1.1); }
 .ai-fab.hide { opacity: 0; pointer-events: none; }
 
