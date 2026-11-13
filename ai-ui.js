@@ -489,7 +489,7 @@
 
   function buildChat() {
     const fab = el('button', { class: 'ai-fab', id: 'aiFab', type: 'button', 'aria-label': 'Open Ask SafeGuard chat' },
-      '<i class="fa-solid fa-robot" aria-hidden="true"></i><span>Ask SafeGuard</span>');
+      '<i class="fa-solid fa-robot" aria-hidden="true"></i><span class="ai-fab-label">Ask SafeGuard</span>');
     const panel = el('section', { class: 'ai-panel', id: 'aiPanel', role: 'dialog', 'aria-label': 'Ask SafeGuard' }, `
       <div class="ai-head">
         <div class="ai-head-ico"><i class="fa-solid fa-robot" aria-hidden="true"></i></div>
@@ -506,6 +506,13 @@
       </div>`);
     document.body.appendChild(fab);
     document.body.appendChild(panel);
+
+    // Show icon + text for 3 s once the dashboard is visible (after login), then keep only the icon.
+    const collapseTimer = setInterval(() => {
+      if (!document.body.classList.contains('authed')) return;
+      clearInterval(collapseTimer);
+      setTimeout(() => fab.classList.add('collapsed'), 3000);
+    }, 300);
 
     const chips = $('aiChips');
     CHIPS_BN.forEach((c) => {
