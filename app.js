@@ -955,14 +955,14 @@ let audioEnabled = false;
         if (data.environment.temperature !== undefined) {
           const val = Number(data.environment.temperature);
           document.getElementById('tempVal').innerText = val.toFixed(1);
-          if (val > 38 || val < 15) {
+          if (val > 45 || val < 15) {
             document.getElementById('tempStatus').innerText = 'High Temp';
             document.getElementById('tempStatus').style.color = 'var(--red)';
             isHazard = true;
             activeAlertsList.push({
               icon: 'fa-temperature-high',
-              title: val > 38 ? 'High Temperature' : 'Low Temperature',
-              detail: `Reading is ${val.toFixed(1)}°C — outside the safe range of 15°C – 38°C`
+              title: val > 45 ? 'High Temperature' : 'Low Temperature',
+              detail: `Reading is ${val.toFixed(1)}°C — outside the safe range of 15°C – 45°C`
             });
           } else {
             document.getElementById('tempStatus').innerText = 'Normal';
@@ -2298,7 +2298,7 @@ let audioEnabled = false;
     // in '/worker1/logs' history: fall, SOS, and temperature/
     // humidity/pressure readings outside the safe range.
     // Uses the exact same thresholds as the live dashboard above
-    // (15-38°C, 20-90% humidity, 950-1050 hPa) so the
+    // (15-45°C, 20-90% humidity, 950-1050 hPa) so the
     // two views always agree.
     // =========================================================
     (function initAlertsFeature() {
@@ -2351,10 +2351,10 @@ let audioEnabled = false;
         if (e.sos) {
           types.push({ key: 'sos', label: 'SOS', detail: 'SOS বাটন সক্রিয় হয়েছিল' });
         }
-        if (typeof e.temperature === 'number' && !isNaN(e.temperature) && (e.temperature > 38 || e.temperature < 15)) {
+        if (typeof e.temperature === 'number' && !isNaN(e.temperature) && (e.temperature > 45 || e.temperature < 15)) {
           types.push({
             key: 'temp', label: 'TEMP',
-            detail: (e.temperature > 38 ? 'উচ্চ' : 'নিম্ন') + ' তাপমাত্রা: ' + e.temperature.toFixed(1) + '°C (নিরাপদ সীমা 15°C–38°C)'
+            detail: (e.temperature > 45 ? 'উচ্চ' : 'নিম্ন') + ' তাপমাত্রা: ' + e.temperature.toFixed(1) + '°C (নিরাপদ সীমা 15°C–45°C)'
           });
         }
         if (typeof e.humidity === 'number' && !isNaN(e.humidity) && (e.humidity > 90 || e.humidity < 20)) {
@@ -2594,7 +2594,7 @@ let audioEnabled = false;
       // ---------- live charts / sparklines ----------
       createSparkline('hHrSpark', '#ff3366', 'rgba(255, 51, 102, 0.35)');
       createSparkline('hSpo2Spark', '#00f2ff', 'rgba(0, 242, 255, 0.35)');
-      createSparkline('hGasSpark', '#f59e0b', 'rgba(245, 158, 11, 0.35)');
+      createSparkline('hGasSpark', '#a855f7', 'rgba(168, 85, 247, 0.35)');
 
       const hrChart = createLiveChart('hHrChart', 'Heart Rate (bpm)', '#ff3366', 'rgba(255,51,102,0.1)');
       const spo2Chart = createLiveChart('hSpo2Chart', 'SpO₂ (%)', '#00f2ff', 'rgba(0,242,255,0.1)');
