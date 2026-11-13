@@ -18,7 +18,7 @@
 
   // ---------- 1. Fixed thresholds (mirror of app.js) ----------
   const TH = {
-    TEMP: [15, 45], HUM: [20, 90], PRES: [950, 1050],
+    TEMP: [15, 38], HUM: [20, 90], PRES: [950, 1050],
     HR: [50, 120], SPO2_MIN: 90, GAS_MARGIN: 150, OBST_CM: 50, NO_ECHO: 999
   };
   const GAP_MS = 90 * 1000;          // logs are written about every 30 s
