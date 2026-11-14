@@ -2659,7 +2659,7 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
 /* ============================================================
    HELMET NEON STATE GLOW
    - Helmet OFFLINE / waiting  -> steady YELLOW neon
-   - Helmet REALTIME STREAMING -> steady RED neon
+   - Helmet REALTIME STREAMING -> steady GREEN neon (same as Vest)
    Driven purely by the 'active' class the helmet JS already toggles
    on #hSysIcon (setConnectedUi adds it, goOffline removes it).
    Applies ONLY to the main helmet status card (AWAITING / HELMET OFFLINE /
@@ -2670,8 +2670,8 @@ body.light-theme #audioBtn.active-sound i { color: inherit; }
   box-shadow: 0 0 0 1px rgba(234,179,8,.35), 0 0 24px 4px rgba(234,179,8,.28), 0 0 50px 10px rgba(234,179,8,.1);
 }
 .system-card:has(#hSysIcon.active) {
-  border-color: var(--red);
-  box-shadow: 0 0 0 1px rgba(255,51,102,.35), 0 0 24px 4px rgba(255,51,102,.28), 0 0 50px 10px rgba(255,51,102,.1);
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px rgba(16,185,129,.35), 0 0 24px 4px rgba(16,185,129,.28), 0 0 50px 10px rgba(16,185,129,.1);
 }
 
 /* Helmet hover glows — Gas and Obstacle colours exchanged:
@@ -2805,3 +2805,30 @@ body.light-theme .badge { font-weight: 800; }
 
 /* light theme: status badges (NO FALL / SOS NORMAL / DETECTED OBJECT …) were pale on the light fill */
 body.light-theme .badge { filter: brightness(.68) saturate(1.25); }
+
+
+/* ============================================================
+   TOP BAR — keep it on ONE row on 13"/14" laptops (769px–1500px)
+   Never wraps; items shrink only a little so text stays readable.
+   ============================================================ */
+@media (min-width: 769px) and (max-width: 1500px) {
+  #mainContent > header.glass-panel { flex-wrap: nowrap; gap: 8px; padding: 9px 14px; }
+  #mainContent > header .header-left,
+  #mainContent > header .header-right { flex-wrap: nowrap; gap: 8px; min-width: 0; }
+  #mainContent > header .header-right { flex-shrink: 0; }
+  #mainContent > header .cmd-title { font-size: 14px; letter-spacing: .6px; }
+  #mainContent > header .status-badge { font-size: 10px; padding: 5px 9px; letter-spacing: .3px; white-space: nowrap; }
+  #mainContent > header .btn-action { font-size: 11px; padding: 7px 9px; gap: 5px; white-space: nowrap; }
+  #mainContent > header .clock-box { font-size: 13px; gap: 5px; white-space: nowrap; }
+  #logoutUserLabel { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (min-width: 769px) and (max-width: 1280px) {
+  #mainContent > header .header-left,
+  #mainContent > header .header-right { gap: 6px; }
+  #mainContent > header .cmd-title { font-size: 13px; letter-spacing: .4px; }
+  #mainContent > header .status-badge { font-size: 9.5px; padding: 4px 8px; }
+  #mainContent > header .btn-action { font-size: 10.5px; padding: 6px 8px; }
+  #mainContent > header .clock-box { font-size: 12px; }
+  #mainContent > header .clock-box i { display: none; }
+  #logoutUserLabel { max-width: 72px; }
+}
