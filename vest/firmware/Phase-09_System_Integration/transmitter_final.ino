@@ -3,7 +3,7 @@
  * File    : Transmitter_Final.ino
  * Description:
  * ESP32 transmitter combining BME280 (env), MPU6050 (posture/movement/fall),
- * GPS, SOS button, battery monitor, OLED and LoRa transmission.
+ * GPS, SOS button, battery monitor and LoRa transmission.
  *
  * Worker status reported to receiver (5 categories only):
  *   STANDING / WALKING / RUNNING / LYING / FALL
@@ -30,6 +30,13 @@
  * payload CRC is enabled so a corrupted packet is dropped rather than parsed
  * into bogus sensor values. The receiver sketch must be flashed together with
  * this one - the packet format changed.
+ *
+ * TIMING FIX: the MPU is sampled on a fixed 20 ms (50 Hz) schedule, the
+ * BME280 is read once per second and I2C runs at 400 kHz, so the 15-sample
+ * motion-energy window and 3-sample debounce see the rate they were tuned for.
+ *
+ * INIT: for the first 5 s after boot the status is "INITIALIZING" (Serial +
+ * LoRa packets); STANDING appears only after calibration is complete.
  */
 
 #include <Wire.h>
@@ -38,7 +45,6 @@
 #include <MPU6050.h>
 #include <TinyGPS++.h>
 #include <HardwareSerial.h>
-#include <Adafruit_SSD1306.h>
 #include <SPI.h>
 #include <LoRa.h>
 #include <math.h>
@@ -61,11 +67,6 @@
 #define SS_PIN    5
 #define RST_PIN   14
 #define DIO0_PIN  2
-
-// ===================== OLED Display =====================
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 // ===================== Sensor Objects =====================
 Adafruit_BME280 bme;
@@ -98,6 +99,16 @@ const unsigned long TX_INTERVAL_MS = 1000;
 // report gaps (i.e. packets lost over the air) - it is never written to
 // Firebase, so the website's data structure is unchanged.
 unsigned long packetSeq = 0;
+
+
+// ===================== Loop Timing =====================
+const unsigned long MPU_INTERVAL_MS  = 20;    // 50 Hz MPU sampling (energy window / debounce assume this)
+const unsigned long BME_INTERVAL_MS  = 1000;  // BME280 read period
+const unsigned long INIT_TOTAL_MS    = 5000;  // INITIALIZING duration after boot (last 2 s = calibration)
+
+unsigned long lastMpuTime  = 0;
+unsigned long lastBmeTime  = 0;
+unsigned long mpuSampleCount = 0;             // samples taken since last TX (diagnostic, should be ~50)
 
 /*
  * ==========================================================
@@ -165,6 +176,12 @@ PostureState previousPostureState = POSTURE_STANDING;
 bool postureChanged = false;
 bool isUpright = true; // gates the movement classifier
 
+// True while the 5 s boot initialization/calibration is running
+bool mpuInitializing = true;
+// True if the MPU6050 does not answer on I2C (reported as "MPU ERROR")
+bool mpuFault = false;
+
+
 // Movement-Energy Classifier (only runs while isUpright == true)
 const int ENERGY_WINDOW = 15;
 float energyBuf[ENERGY_WINDOW] = {0};
@@ -205,7 +222,7 @@ struct MPUData
   PostureState posture;
   MovementState movement;
 
-  const char* status; // full status (includes LEAN, for local debug/OLED)
+  const char* status; // full status (includes LEAN, for local debug)
 };
 
 MPUData mpuData;
@@ -405,9 +422,11 @@ void updateFallDetection()
   }
 }
 
-// Full status (for local OLED/Serial debugging - includes LEAN detail)
+// Full status (for local Serial debugging - includes LEAN detail)
 const char* getFullWorkerStatus()
 {
+  if (mpuInitializing) return "INITIALIZING";
+  if (mpuFault) return "MPU ERROR";
   switch (postureState)
   {
     case POSTURE_FALL:           return "FALL DETECTED";
@@ -433,6 +452,8 @@ const char* getFullWorkerStatus()
 // forces STANDING while leaning, so this stays consistent).
 const char* getSimplifiedStatus()
 {
+  if (mpuInitializing) return "INITIALIZING";
+  if (mpuFault) return "MPU ERROR";
   switch (postureState)
   {
     case POSTURE_FALL: return "FALL";
@@ -446,6 +467,7 @@ const char* getSimplifiedStatus()
       }
   }
 }
+
 
 void updateMPUData()
 {
@@ -466,32 +488,93 @@ void updateMPUData()
   mpuData.status = getFullWorkerStatus();
 }
 
+
+/*
+ * ==========================================================
+ * Telemetry (LoRa packet + Serial print) - used by loop() and
+ * by the INITIALIZING phase
+ * ==========================================================
+ */
+void sendTelemetry()
+{
+  const char* statusToSend = getSimplifiedStatus(); // INITIALIZING/STANDING/WALKING/RUNNING/LYING/FALL
+
+  packetSeq++;
+
+  // CSV: temp,hum,pres,state,fall,lat,lng,sos,batt,seq
+  String payload = String(temp, 1) + "," + String(hum, 1) + "," + String(pres, 1) + "," +
+                   String(statusToSend) + "," + String(mpuData.fall) + "," +
+                   String(latitude, 6) + "," + String(longitude, 6) + "," +
+                   String(sosActive) + "," + String(batteryVoltage, 2) + "," +
+                   String(packetSeq);
+
+  LoRa.beginPacket();
+  LoRa.print(payload);
+  LoRa.endPacket();
+
+  Serial.printf("------ [ TRANSMITTING SENSOR DATA #%lu ] ------\n", packetSeq);
+  Serial.printf("Temp: %.1f C | Hum: %.1f %% | Pres: %.1f hPa\n", temp, hum, pres);
+  Serial.printf("Status (sent): %s | Status (full): %s\n", statusToSend, getFullWorkerStatus());
+  Serial.printf("Fall: %s | SOS(button): %s\n", mpuData.fall ? "YES" : "NO", sosActive ? "YES" : "NO");
+  Serial.printf("MPU samples/s: %lu (should be ~50) | Motion energy (avg): %.0f\n", mpuSampleCount, mpuData.motionEnergy);
+  Serial.printf("GPS: Lat %.6f, Lng %.6f | Batt: %.2fV\n", latitude, longitude, batteryVoltage);
+  Serial.printf("Payload Sent: %s\n", payload.c_str());
+  Serial.println("------------------------------------------\n");
+
+  mpuSampleCount = 0;
+}
+
+/*
+ * ==========================================================
+ * Initialization + Calibration (5 s total)
+ *   0 - 3 s : settle (sensor sampled, nothing averaged)
+ *   3 - 5 s : reference pitch/roll averaged (CAL_SAMPLES)
+ * Status is "INITIALIZING" for the whole time; it becomes
+ * STANDING only after this function returns.
+ * ==========================================================
+ */
 void calibrateMPU()
 {
-  Serial.println("[MPU] Automatic Calibration - keep the worker still...");
-  for (int i = 5; i > 0; i--) { Serial.println(i); delay(1000); }
+  mpuInitializing = true;
+  Serial.println("[MPU] INITIALIZING (5 s) - keep the worker still...");
 
+  const unsigned long start = millis();
+  const unsigned long calStart = INIT_TOTAL_MS - (unsigned long)CAL_SAMPLES * MPU_INTERVAL_MS;
+
+  int lastSecLeft = -1;
   float ps = 0, rs = 0;
-  for (int i = 0; i < CAL_SAMPLES; i++)
+  int n = 0;
+
+  while (millis() - start < INIT_TOTAL_MS)
   {
-    updateMPUFilter();
-    ps += pitch; rs += roll;
-    delay(20);
+    unsigned long elapsed = millis() - start;
+
+    updateMPUFilter();   // also fills the filter + energy buffers
+
+    if (elapsed >= calStart) { ps += pitch; rs += roll; n++; }
+
+    int secLeft = (int)((INIT_TOTAL_MS - elapsed + 999) / 1000);
+    if (secLeft != lastSecLeft)
+    {
+      lastSecLeft = secLeft;
+      Serial.printf("[MPU] Initializing... %d\n", secLeft);
+      sendTelemetry();   // status = INITIALIZING
+    }
+
+    delay(MPU_INTERVAL_MS);
   }
 
-  refPitch = ps / CAL_SAMPLES;
-  refRoll  = rs / CAL_SAMPLES;
+  refPitch = (n > 0) ? ps / n : pitch;
+  refRoll  = (n > 0) ? rs / n : roll;
 
   Serial.print("[MPU] Reference Pitch: "); Serial.println(refPitch, 2);
   Serial.print("[MPU] Reference Roll: ");  Serial.println(refRoll, 2);
 
-  // Warm up the energy buffer while standing still
-  for (int i = 0; i < ENERGY_WINDOW * 2; i++)
-  {
-    updateMPUFilter();
-    delay(20);
-  }
+  mpuSampleCount = 0;
+  mpuInitializing = false;   // from here on: STANDING / WALKING / ...
+  Serial.println("[MPU] Initialization complete.");
 }
+
 
 /*
  * ==========================================================
@@ -542,33 +625,17 @@ void setup() {
 
   gpsSerial.begin(9600, SERIAL_8N1, 16, 17);
   sim800l.begin(9600);
-  Wire.begin(); // I2C for OLED + BME280 + MPU6050 (default SDA21/SCL22)
+  Wire.begin();          // I2C for BME280 + MPU6050 (default SDA21/SCL22)
 
   pinMode(SOS_BUTTON_PIN, INPUT_PULLUP);
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
 
-  // Initialize OLED
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println("[OLED] Failed to initialize!");
-  } else {
-    Serial.println("[OLED] Ready.");
-  }
-
   // Initialize BME280
   if (!bme.begin(0x76)) Serial.println("[BME280] Sensor Failed!");
   else Serial.println("[BME280] Sensor Ready.");
 
-  // Initialize MPU6050 + calibrate (worker must stand still during countdown)
-  mpu.initialize();
-  if (mpu.testConnection()) {
-    Serial.println("[MPU6050] Sensor Ready.");
-    calibrateMPU();
-  } else {
-    Serial.println("[MPU6050] Connection Failed!");
-  }
-
-  // Initialize LoRa
+  // Initialize LoRa (before MPU calibration so INITIALIZING can be transmitted)
   SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
   LoRa.setPins(SS_PIN, RST_PIN, DIO0_PIN);
   if (!LoRa.begin(433E6)) {
@@ -576,14 +643,45 @@ void setup() {
     while (1);
   }
 
-  // Payload CRC: without this a packet corrupted in flight is still handed to
-  // the receiver, which then parses garbage temperatures/coordinates and
-  // uploads them as if they were real. With CRC on (it must be enabled on BOTH
-  // radios), a corrupted packet is discarded by the receiver instead - the
-  // next one arrives a second later anyway.
+  // Payload CRC (must be enabled on BOTH radios): corrupted packets are
+  // discarded by the receiver instead of being parsed as real data.
   LoRa.enableCrc();
+  Serial.println("[LoRa] Transmitter Ready.");
 
-  Serial.println("[LoRa] Transmitter Ready.\n");
+  // First readings so the INITIALIZING packets carry real values
+  temp = bme.readTemperature();
+  hum  = bme.readHumidity();
+  pres = bme.readPressure() / 100.0F;
+  batteryVoltage = (analogRead(BATT_ADC_PIN) / 4095.0) * 2 * 3.3 * 1.1;
+
+  // Initialize MPU6050. NOTE: testConnection() is only printed, NOT used to
+  // decide - many GY-521 clones fail that WHO_AM_I check yet work fine. The
+  // real test is whether the sensor returns valid accelerometer data.
+  mpu.initialize();
+  bool mpuAlive = false;
+  for (int attempt = 1; attempt <= 3 && !mpuAlive; attempt++) {
+    delay(100);
+    Serial.printf("[MPU6050] WHO_AM_I = 0x%02X | testConnection: %s\n",
+                  mpu.getDeviceID(), mpu.testConnection() ? "OK" : "FAIL");
+    mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    mpuAlive = !((ax == 0 && ay == 0 && az == 0) || (ax == -1 && ay == -1 && az == -1));
+    if (!mpuAlive) {
+      Serial.printf("[MPU6050] No valid data (attempt %d/3)\n", attempt);
+      mpu.initialize();
+    }
+  }
+
+  if (mpuAlive) {
+    Serial.println("[MPU6050] Sensor Ready.");
+    calibrateMPU();        // 5 s INITIALIZING, then STANDING etc.
+  } else {
+    mpuFault = true;
+    mpuInitializing = false;
+    Serial.println("[MPU6050] NOT RESPONDING - check SDA(21)/SCL(22), VCC, GND");
+  }
+
+  lastMpuTime = lastBmeTime = millis();
+  Serial.println("[System] Setup complete.\n");
 }
 
 /*
@@ -592,26 +690,36 @@ void setup() {
  * ==========================================================
  */
 void loop() {
-  // 1. Read BME280
-  temp = bme.readTemperature();
-  hum = bme.readHumidity();
-  pres = bme.readPressure() / 100.0F;
+  unsigned long now = millis();
 
-  // 2. Update MPU6050 posture / movement / fall pipeline
-  updateMPUFilter();
-  tiltPitch = pitch - refPitch;
-  tiltRoll  = roll  - refRoll;
+  // 1. MPU6050 pipeline - fixed 50 Hz schedule (independent of LoRa/BME timing)
+  if (!mpuFault && now - lastMpuTime >= MPU_INTERVAL_MS) {
+    lastMpuTime = now;
+    mpuSampleCount++;
 
-  detectFreeFall();
-  detectImpact();
-  detectLyingPosition();
-  detectRecovery();
+    updateMPUFilter();
+    tiltPitch = pitch - refPitch;
+    tiltRoll  = roll  - refRoll;
 
-  updatePostureState();   // decides isUpright (the gate)
-  updateMovementState();  // WALKING/RUNNING only evaluated if isUpright
-  updateFallDetection();
+    detectFreeFall();
+    detectImpact();
+    detectLyingPosition();
+    detectRecovery();
 
-  updateMPUData();
+    updatePostureState();   // decides isUpright (the gate)
+    updateMovementState();  // WALKING/RUNNING only evaluated if isUpright
+    updateFallDetection();
+
+    updateMPUData();
+  }
+
+  // 2. BME280 - once per second
+  if (now - lastBmeTime >= BME_INTERVAL_MS) {
+    lastBmeTime = now;
+    temp = bme.readTemperature();
+    hum  = bme.readHumidity();
+    pres = bme.readPressure() / 100.0F;
+  }
 
   // 3. Read GPS Data
   while (gpsSerial.available() > 0) {
@@ -644,46 +752,11 @@ void loop() {
     digitalWrite(LED_PIN, LOW);
   }
 
-  // 6. Update OLED Display (shows full status incl. LEAN, useful on-body)
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.printf("Temp: %.1f C  Hum: %.1f%%\n", temp, hum);
-  display.printf("Pres: %.1f hPa\n", pres);
-  display.printf("State: %s\n", getFullWorkerStatus());
-  if (mpuData.fall) display.println("ALERT: FALL DETECTED!");
-  if (sosActive) display.println("ALERT: SOS PRESSED!");
-  display.display();
-
-  // 7. LoRa Transmission & Serial Print (every TX_INTERVAL_MS)
+  // 6. LoRa Transmission & Serial Print (every TX_INTERVAL_MS)
   if (millis() - lastTxTime >= TX_INTERVAL_MS) {
-    const char* statusToSend = getSimplifiedStatus(); // STANDING/WALKING/RUNNING/LYING/FALL
-
-    packetSeq++;
-
-    // CSV: temp,hum,pres,state,fall,lat,lng,sos,batt,seq
-    String payload = String(temp, 1) + "," + String(hum, 1) + "," + String(pres, 1) + "," +
-                     String(statusToSend) + "," + String(mpuData.fall) + "," +
-                     String(latitude, 6) + "," + String(longitude, 6) + "," +
-                     String(sosActive) + "," + String(batteryVoltage, 2) + "," +
-                     String(packetSeq);
-
-    LoRa.beginPacket();
-    LoRa.print(payload);
-    LoRa.endPacket();
-
-    // Print Data to Serial Monitor
-    Serial.printf("------ [ TRANSMITTING SENSOR DATA #%lu ] ------\n", packetSeq);
-    Serial.printf("Temp: %.1f C | Hum: %.1f %% | Pres: %.1f hPa\n", temp, hum, pres);
-    Serial.printf("Status (sent): %s | Status (full): %s\n", statusToSend, getFullWorkerStatus());
-    Serial.printf("Fall: %s | SOS(button): %s\n", mpuData.fall ? "YES" : "NO", sosActive ? "YES" : "NO");
-    Serial.printf("GPS: Lat %.6f, Lng %.6f | Batt: %.2fV\n", latitude, longitude, batteryVoltage);
-    Serial.printf("Payload Sent: %s\n", payload.c_str());
-    Serial.println("------------------------------------------\n");
-
+    sendTelemetry();
     lastTxTime = millis();
   }
 
-  delay(20); // keep MPU sample rate steady for the gyro energy window
+  delay(1); // yield; MPU timing is handled by the 20 ms schedule above
 }
