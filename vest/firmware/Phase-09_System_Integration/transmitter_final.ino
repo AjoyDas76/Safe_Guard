@@ -17,11 +17,18 @@
  * NOTE: The SOS button referenced here is the physical emergency button on
  * the vest itself (SOS_BUTTON_PIN), pressed by the worker.
  *
- * SIM800L SOS SMS: on a fall, SOS button press, or high-temperature alert,
- * this sends an SMS (via the SIM800L now mounted on the vest, not the
- * helmet) to EMERGENCY_NUMBER with the worker's last known GPS location and
- * alert reason, cooldown-limited to avoid repeat SMS for the same ongoing
- * alert. Powered from the vest's existing 18650/solar power system.
+ * SIM800L SOS SMS (REWORKED): on a fall, SOS button press, or high-temperature
+ * alert, an SMS goes to EMERGENCY_NUMBER with the worker's last known GPS
+ * location and alert reason. Changes from the previous version:
+ *   - Hardware UART (Serial1 on GPIO25/27) instead of SoftwareSerial.
+ *   - Every AT step now WAITS for the module's real reply (OK, '>', +CMGS:),
+ *     checks network registration, and retries up to 3 times.
+ *   - Sending runs in its own FreeRTOS task (core 0), so loop() (MPU 50 Hz,
+ *     LoRa telemetry, buzzer) is never blocked while the SMS is going out.
+ *   - SOS button: ONE SMS per NEW press (edge detection), not blocked by the
+ *     60 s cooldown. Fall / high-temp alerts keep the 60 s repeat cooldown,
+ *     and a failed send does not start the cooldown (it is retried).
+ *   Powered from the vest's existing 18650/solar power system.
  *
  * LIVE-DATA UPDATE:
  * Telemetry now goes out once per second (TX_INTERVAL_MS) instead of every
@@ -48,7 +55,9 @@
 #include <SPI.h>
 #include <LoRa.h>
 #include <math.h>
-#include <SoftwareSerial.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
 
 // ===================== Pin Definitions =====================
 #define SOS_BUTTON_PIN 15
@@ -73,12 +82,29 @@ Adafruit_BME280 bme;
 MPU6050 mpu;
 TinyGPSPlus gps;
 HardwareSerial gpsSerial(2); // UART2 for GPS (RX:16, TX:17)
-SoftwareSerial sim800l(SIM800_RX_PIN, SIM800_TX_PIN);
+HardwareSerial sim800l(1);   // UART1 remapped to GPIO25 (RX) / GPIO27 (TX) in setup()
 
 // ===================== SIM800L SOS SMS =====================
-#define EMERGENCY_NUMBER "+8801XXXXXXXXX" // set to the tested number, with country code
-const unsigned long SMS_COOLDOWN_MS = 60000; // 60s — avoid repeat SMS while the same alert is still active
-unsigned long lastSmsTime = 0;
+#define EMERGENCY_NUMBER "+8801864573879" // set to the tested number, with country code
+
+const unsigned long SMS_COOLDOWN_MS    = 60000; // fall / high-temp: min gap between SUCCESSFUL SMS while alert stays active
+const unsigned long SMS_RETRY_MS       = 10000; // fall / high-temp: wait before re-trying after a FAILED send
+const unsigned long SOS_PRESS_GUARD_MS = 5000;  // SOS: ignore extra edges this soon after the previous press (bounce / double press)
+const int           SMS_MAX_ATTEMPTS   = 3;     // tries per SMS before giving up
+
+struct SmsRequest {
+  char  reason[24];
+  char  status[20];
+  float lat;
+  float lng;
+  bool  isSos;
+};
+
+QueueHandle_t smsQueue;                       // requests waiting for smsTask
+volatile bool autoSmsPending = false;         // a fall/temp SMS is queued or being sent
+volatile bool autoSmsSentOnce = false;        // at least one fall/temp SMS succeeded
+volatile unsigned long lastAutoSmsOk = 0;     // time of last successful fall/temp SMS
+unsigned long lastAutoAttemptMs = 0;          // time a fall/temp SMS was last queued
 
 // ===================== Environment / GPS / System Globals =====================
 float temp, hum, pres;
@@ -581,36 +607,140 @@ void calibrateMPU()
  * SIM800L SOS SMS
  * ==========================================================
  */
-void sim800Command(const char* cmd) {
-  sim800l.println(cmd);
-  delay(300);
+// Throw away anything the module sent that we have not read yet
+void simFlush() {
+  while (sim800l.available()) sim800l.read();
 }
 
-void sendSOSMessage(const char* reason) {
-  Serial.println("[SIM800L] Sending SOS SMS...");
+// Wait until `expect` appears in the module's reply. Returns false on
+// "ERROR" (incl. +CMS ERROR) or timeout. The full reply is copied to *out.
+// Runs inside smsTask, so vTaskDelay() lets other tasks run while waiting.
+bool simWaitFor(const char* expect, unsigned long timeoutMs, String* out = nullptr) {
+  String buf;
+  unsigned long start = millis();
+  while (millis() - start < timeoutMs) {
+    while (sim800l.available()) buf += (char)sim800l.read();
+    if (buf.indexOf(expect) >= 0) { if (out) *out = buf; return true; }
+    if (buf.indexOf("ERROR") >= 0) { if (out) *out = buf; return false; }
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+  if (out) *out = buf;
+  return false;
+}
 
-  sim800Command("AT");
-  sim800Command("AT+CMGF=1"); // text mode
+bool simCommand(const char* cmd, const char* expect, unsigned long timeoutMs, String* out = nullptr) {
+  simFlush();
+  sim800l.println(cmd);
+  return simWaitFor(expect, timeoutMs, out);
+}
 
+// Wait (up to timeoutMs) until the module is registered on the network
+// (+CREG: n,1 = home, n,5 = roaming)
+bool simWaitForNetwork(unsigned long timeoutMs) {
+  unsigned long start = millis();
+  while (millis() - start < timeoutMs) {
+    String r;
+    if (simCommand("AT+CREG?", "OK", 1000, &r)) {
+      int p = r.indexOf("+CREG:");
+      int c = (p >= 0) ? r.indexOf(',', p) : -1;
+      if (c >= 0 && (size_t)(c + 1) < r.length()) {
+        char st = r[c + 1];
+        if (st == '1' || st == '5') return true;
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+  return false;
+}
+
+// One complete send attempt. Returns true only if the module confirmed
+// the SMS with +CMGS:.
+bool sendSmsOnce(const SmsRequest& req) {
+  // Leave any half-finished '>' prompt from a previous failed attempt
+  sim800l.write(27);                 // ESC
+  vTaskDelay(pdMS_TO_TICKS(200));
+  simFlush();
+
+  bool alive = false;
+  for (int i = 0; i < 3 && !alive; i++) alive = simCommand("AT", "OK", 1000);
+  if (!alive) { Serial.println("[SIM800L] No reply to AT - check power / wiring (module may have reset)"); return false; }
+  Serial.println("[SIM800L] Step 1/4: module answers AT");
+
+  simCommand("ATE0", "OK", 1000);    // echo off, replies are easier to parse
+
+  if (!simCommand("AT+CMGF=1", "OK", 2000)) { Serial.println("[SIM800L] CMGF failed"); return false; }
+
+  unsigned long netStart = millis();
+  if (!simWaitForNetwork(20000)) { Serial.println("[SIM800L] Not registered on the network after 20 s (check SIM / signal / power)"); return false; }
+  Serial.printf("[SIM800L] Step 2/4: network registered (took %lu ms)\n", millis() - netStart);
+
+  simFlush();
   sim800l.print("AT+CMGS=\"");
   sim800l.print(EMERGENCY_NUMBER);
-  sim800l.println("\"");
-  delay(300);
+  sim800l.print("\"\r");
+  if (!simWaitFor(">", 5000)) {
+    Serial.println("[SIM800L] No '>' prompt from module");
+    sim800l.write(27);               // ESC cancels
+    return false;
+  }
+  Serial.println("[SIM800L] Step 3/4: '>' prompt received, sending text");
 
   sim800l.print("SafeGuard ALERT: ");
-  sim800l.print(reason);
+  sim800l.print(req.reason);
   sim800l.print(" | Status: ");
-  sim800l.print(getFullWorkerStatus());
+  sim800l.print(req.status);
   sim800l.print(" | Last location: https://maps.google.com/?q=");
-  sim800l.print(latitude, 6);
+  sim800l.print(req.lat, 6);
   sim800l.print(",");
-  sim800l.print(longitude, 6);
-  sim800l.println();
+  sim800l.print(req.lng, 6);
+  sim800l.write(26);                 // Ctrl+Z, ends the message
 
-  sim800l.write(26); // Ctrl+Z, ends the message
-  delay(3000);
+  String r;
+  bool ok = simWaitFor("+CMGS:", 30000, &r);   // network can take a while to confirm
+  if (!ok) {
+    Serial.printf("[SIM800L] Send not confirmed. Module said: %s\n", r.c_str());
+    sim800l.write(27);
+  } else {
+    Serial.println("[SIM800L] Step 4/4: module confirmed +CMGS");
+  }
+  return ok;
+}
 
-  Serial.println("[SIM800L] SOS SMS sent.");
+// Runs on core 0. Takes requests from smsQueue and sends them one at a time.
+void smsTask(void* param) {
+  SmsRequest req;
+  for (;;) {
+    if (xQueueReceive(smsQueue, &req, portMAX_DELAY) != pdTRUE) continue;
+
+    Serial.printf("[SIM800L] Sending SMS: %s\n", req.reason);
+    bool ok = false;
+    for (int attempt = 1; attempt <= SMS_MAX_ATTEMPTS && !ok; attempt++) {
+      ok = sendSmsOnce(req);
+      if (!ok) {
+        Serial.printf("[SIM800L] Attempt %d/%d failed\n", attempt, SMS_MAX_ATTEMPTS);
+        vTaskDelay(pdMS_TO_TICKS(2000));
+      }
+    }
+    Serial.println(ok ? "[SIM800L] SMS CONFIRMED sent." : "[SIM800L] SMS FAILED after all attempts.");
+
+    if (!req.isSos) {
+      if (ok) { lastAutoSmsOk = millis(); autoSmsSentOnce = true; }
+      autoSmsPending = false;        // on failure loop() retries after SMS_RETRY_MS
+    }
+  }
+}
+
+// Called from loop(): snapshot the current state and hand it to smsTask
+bool queueSms(const char* reason, bool isSos) {
+  SmsRequest r;
+  strncpy(r.reason, reason, sizeof(r.reason) - 1);
+  r.reason[sizeof(r.reason) - 1] = 0;
+  strncpy(r.status, getFullWorkerStatus(), sizeof(r.status) - 1);
+  r.status[sizeof(r.status) - 1] = 0;
+  r.lat = latitude;
+  r.lng = longitude;
+  r.isSos = isSos;
+  return xQueueSend(smsQueue, &r, 0) == pdTRUE;
 }
 
 /*
@@ -624,8 +754,11 @@ void setup() {
   Serial.println("\n[System] Initializing Smart Vest Transmitter...");
 
   gpsSerial.begin(9600, SERIAL_8N1, 16, 17);
-  sim800l.begin(9600);
-  Wire.begin();          // I2C for BME280 + MPU6050 (default SDA21/SCL22)
+  sim800l.setRxBufferSize(512);
+  sim800l.begin(9600, SERIAL_8N1, SIM800_RX_PIN, SIM800_TX_PIN);
+  smsQueue = xQueueCreate(4, sizeof(SmsRequest));
+  xTaskCreatePinnedToCore(smsTask, "smsTask", 8192, NULL, 1, NULL, 0);
+  Wire.begin();        // I2C for BME280 + MPU6050 (default SDA21/SCL22)
 
   pinMode(SOS_BUTTON_PIN, INPUT_PULLUP);
   pinMode(BUZZER_PIN, OUTPUT);
@@ -741,15 +874,42 @@ void loop() {
   if (alertActive) {
     digitalWrite(BUZZER_PIN, HIGH);
     digitalWrite(LED_PIN, HIGH);
-
-    if (millis() - lastSmsTime > SMS_COOLDOWN_MS) {
-      const char* reason = mpuData.fall ? "FALL DETECTED" : sosActive ? "SOS BUTTON PRESSED" : "HIGH TEMPERATURE";
-      sendSOSMessage(reason);
-      lastSmsTime = millis();
-    }
   } else {
     digitalWrite(BUZZER_PIN, LOW);
     digitalWrite(LED_PIN, LOW);
+  }
+
+  // 5a. SOS button: ONE SMS per NEW press (edge detection). Not affected by
+  //     the 60 s cooldown; only a short guard against bounce / double press.
+  static bool lastSosState = false;
+  static bool sosEverQueued = false;
+  static unsigned long lastSosSmsMs = 0;
+  bool sosPressedNow = sosActive && !lastSosState;
+  lastSosState = sosActive;
+  if (sosPressedNow) {
+    if (!sosEverQueued || millis() - lastSosSmsMs >= SOS_PRESS_GUARD_MS) {
+      if (queueSms("SOS BUTTON PRESSED", true)) {
+        sosEverQueued = true;
+        lastSosSmsMs = millis();
+        Serial.println("[SOS] New press detected - SMS queued.");
+      } else {
+        Serial.println("[SOS] New press detected but SMS queue is full - ignored.");
+      }
+    } else {
+      Serial.println("[SOS] Press ignored (less than 5 s since the previous press).");
+    }
+  }
+
+  // 5b. Fall / high temperature: repeat every SMS_COOLDOWN_MS while the alert
+  //     lasts. The cooldown only starts after a CONFIRMED send; a failed send
+  //     is retried after SMS_RETRY_MS.
+  bool autoAlert = (mpuData.fall || temp > 50.0);
+  if (autoAlert && !autoSmsPending &&
+      (lastAutoAttemptMs == 0 || millis() - lastAutoAttemptMs >= SMS_RETRY_MS) &&
+      (!autoSmsSentOnce || millis() - lastAutoSmsOk > SMS_COOLDOWN_MS)) {
+    autoSmsPending = true;
+    lastAutoAttemptMs = millis();
+    if (!queueSms(mpuData.fall ? "FALL DETECTED" : "HIGH TEMPERATURE", false)) autoSmsPending = false;
   }
 
   // 6. LoRa Transmission & Serial Print (every TX_INTERVAL_MS)
